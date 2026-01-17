@@ -40,7 +40,7 @@ async def entrypoint(ctx: agents.JobContext):
 
     session = AgentSession(
         stt="deepgram",  # or "assemblyai"
-        llm="anthropic",
+        llm="google",
         tts="cartesia",
         vad=silero.VAD.load(),
     )

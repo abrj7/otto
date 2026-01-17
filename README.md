@@ -18,7 +18,7 @@ Otto is not a chatbot or dashboard. It's your senior engineer teammate who alrea
 | Frontend | Next.js 14, TypeScript, Tailwind, shadcn/ui |
 | Backend | Next.js API Routes, Supabase |
 | Voice | LiveKit Agents SDK (Python) |
-| LLM | Claude API (Anthropic) |
+| LLM | Gemini 2.5 Flash (Google) |
 
 ## Quick Start
 
@@ -87,7 +87,7 @@ See `.env.example` for all required variables:
 
 - `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
 - `LIVEKIT_*` - LiveKit Cloud credentials
-- `ANTHROPIC_API_KEY` - Claude API key
+- `GEMINI_API_KEY` - Google Gemini API key
 - `GITHUB_TOKEN` - GitHub PAT
 - And more for each integration...
 
