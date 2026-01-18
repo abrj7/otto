@@ -8,13 +8,13 @@ interface VoiceStatusProps {
 }
 
 const statusConfig = {
-    idle: { label: 'Ready', color: 'bg-muted-foreground/30' },
-    connecting: { label: 'Connecting...', color: 'bg-muted-foreground/50 animate-pulse' },
-    connected: { label: 'Connected', color: 'bg-foreground' },
-    listening: { label: 'Listening...', color: 'bg-foreground animate-pulse' },
-    processing: { label: 'Processing...', color: 'bg-muted-foreground animate-pulse' },
-    speaking: { label: 'otto is speaking', color: 'bg-foreground animate-pulse' },
-    error: { label: 'Error', color: 'bg-muted-foreground' },
+    idle: { label: 'Ready', color: 'bg-green-500' },
+    connecting: { label: 'Connecting...', color: 'bg-yellow-500 animate-pulse' },
+    connected: { label: 'Connected', color: 'bg-green-500' },
+    listening: { label: 'Listening...', color: 'bg-green-500 animate-pulse' },
+    processing: { label: 'Processing...', color: 'bg-yellow-500 animate-pulse' },
+    speaking: { label: 'otto is speaking', color: 'bg-green-500 animate-pulse' },
+    error: { label: 'Error', color: 'bg-red-500' },
 }
 
 export function VoiceStatus({ status, className }: VoiceStatusProps) {
