@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -74,10 +75,12 @@ export default function DashboardPage() {
 
                 {/* Navigation */}
                 <nav className="flex-1 p-3 space-y-1">
-                    <SidebarItem icon={<FileText className="w-4 h-4" />} label="My Briefings" active />
-                    <SidebarItem icon={<Calendar className="w-4 h-4" />} label="Calendar" />
-                    <SidebarItem icon={<MessageSquare className="w-4 h-4" />} label="Slack Updates" />
-                    <SidebarItem icon={<Github className="w-4 h-4" />} label="GitHub Activity" />
+                    <SidebarItem href="/dashboard" icon={<FileText className="w-4 h-4" />} label="My Briefings" active />
+                    <SidebarItem href="/calendar" icon={<Calendar className="w-4 h-4" />} label="Calendar" />
+                    <SidebarItem href="/slack" icon={<MessageSquare className="w-4 h-4" />} label="Slack Updates" />
+                    <SidebarItem href="/github" icon={<Github className="w-4 h-4" />} label="GitHub Activity" />
+                    <SidebarItem href="/email" icon={<Send className="w-4 h-4" />} label="Email" />
+                    <SidebarItem href="/onboarding" icon={<Plus className="w-4 h-4" />} label="Add Integration" />
                 </nav>
 
                 {/* Settings */}
@@ -216,9 +219,9 @@ export default function DashboardPage() {
     )
 }
 
-function SidebarItem({ icon, label, active = false }: { icon: React.ReactNode; label: string; active?: boolean }) {
+function SidebarItem({ href, icon, label, active = false }: { href: string; icon: React.ReactNode; label: string; active?: boolean }) {
     return (
-        <button className={`
+        <Link href={href} className={`
             w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors
             ${active
                 ? 'bg-[#353535] text-white'
@@ -227,6 +230,6 @@ function SidebarItem({ icon, label, active = false }: { icon: React.ReactNode; l
         `}>
             {icon}
             <span>{label}</span>
-        </button>
+        </Link>
     )
 }

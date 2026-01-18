@@ -1,38 +1,35 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
-import { getValidGoogleToken } from '@/lib/google-auth'
+
+// Admin client for DB operations (bypasses RLS)
+const supabaseAdmin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 export async function GET(request: NextRequest) {
-    const supabase = await createClient()
-
-    // Get query params
-    const { searchParams } = new URL(request.url)
+    const searchParams = request.nextUrl.searchParams
+    const userId = searchParams.get('user_id')
     const includeFull = searchParams.get('full') === 'true'
     const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 20)
 
-    // Get user - either from session cookie OR from X-User-ID header (for agent)
-    let userId: string | null = null
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-        userId = user.id
-    } else {
-        // Fallback to X-User-ID header (used by voice agent)
-        userId = request.headers.get('X-User-ID')
-    }
-
     if (!userId) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        return NextResponse.json({ error: 'Missing user_id parameter' }, { status: 400 })
     }
 
-    // Get valid Google token (auto-refreshes if expired)
-    const accessToken = await getValidGoogleToken(userId)
+    // Get Google token from user_integrations using admin client
+    const { data: integration } = await supabaseAdmin
+        .from('user_integrations')
+        .select('access_token')
+        .eq('user_id', userId)
+        .eq('provider', 'google')
+        .single()
 
-    if (!accessToken) {
+    if (!integration?.access_token) {
         return NextResponse.json({
-            error: 'Gmail not connected or token expired. Please reconnect Google.',
+            error: 'Gmail not connected',
             connected: false
-        }, { status: 401 })
+        }, { status: 400 })
     }
 
     try {
@@ -41,7 +38,7 @@ export async function GET(request: NextRequest) {
             'https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=20&labelIds=INBOX',
             {
                 headers: {
-                    Authorization: `Bearer ${accessToken}`,
+                    Authorization: `Bearer ${integration.access_token}`,
                 },
             }
         )
@@ -67,7 +64,7 @@ export async function GET(request: NextRequest) {
                     `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=${format}${metadataHeaders}`,
                     {
                         headers: {
-                            Authorization: `Bearer ${accessToken}`,
+                            Authorization: `Bearer ${integration.access_token}`,
                         },
                     }
                 )
@@ -110,17 +107,8 @@ export async function GET(request: NextRequest) {
             }
         })
 
-        // Also create events format for voice agent
-        const events = formattedMessages.map((msg: any) => ({
-            actor: msg.from,
-            title: msg.subject,
-            date: msg.date,
-            unread: msg.unread,
-        }))
-
         return NextResponse.json({
             messages: formattedMessages,
-            events,  // For voice agent compatibility
             connected: true
         })
     } catch (err) {

@@ -1,0 +1,65 @@
+============================================================
+OTTO TOOLS TEST RESULTS
+Run at: 2026-01-18 01:58:41
+API_URL: http://localhost:3000
+============================================================
+
+----------------------------------------
+TEST 1: GitHub Activity API
+----------------------------------------
+HTTP Status: 401
+Status: UNAUTHORIZED (need to log in)
+
+----------------------------------------
+TEST 2: Gmail API
+----------------------------------------
+HTTP Status: 401
+Status: UNAUTHORIZED (need to log in)
+
+----------------------------------------
+TEST 3: Calendar API (GET events)
+----------------------------------------
+HTTP Status: 401
+Status: UNAUTHORIZED (need to log in)
+
+----------------------------------------
+TEST 4: Date Parsing Logic
+----------------------------------------
+  'today' -> 2026-01-18 (expected: 2026-01-18) ✅
+  'tomorrow' -> 2026-01-19 (expected: 2026-01-19) ✅
+  'January 28th' -> 2026-01-28 (expected: 2026-01-28) ✅
+  'Feb 15' -> 2026-02-15 (expected: 2026-02-15) ✅
+  'September 28' -> 2026-09-28 (expected: 2026-09-28) ✅
+Status: SUCCESS ✅
+
+----------------------------------------
+TEST 5: Time Parsing Logic
+----------------------------------------
+  '3pm' -> 15:00 (expected: 15:00) ✅
+  '11am' -> 11:00 (expected: 11:00) ✅
+  '3:30pm' -> 15:30 (expected: 15:30) ✅
+  '9:15am' -> 09:15 (expected: 09:15) ✅
+  '11pm' -> 23:00 (expected: 23:00) ✅
+Status: SUCCESS ✅
+
+----------------------------------------
+TEST 6: Web Search (DuckDuckGo)
+----------------------------------------
+Results found: 3
+  1. time - Proper Timezone Acronym Usage - PT vs PDT o
+  2. phrase requests - Word to mean "then-current" - En
+  3. phrases - Is 'at the time of writing' correct? - E
+Status: SUCCESS ✅
+
+----------------------------------------
+TEST 7: Token Company Compression
+----------------------------------------
+Token Company client: CONNECTED ✅
+Original: 1060 chars
+Compressed: 143 chars
+Ratio: 7.41x
+Status: SUCCESS ✅
+
+============================================================
+TEST COMPLETE
+============================================================
