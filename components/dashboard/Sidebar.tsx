@@ -62,7 +62,7 @@ export function Sidebar() {
                 "p-4 flex items-center border-b border-border",
                 isCollapsed ? "justify-center" : "justify-between"
             )}>
-                {!isCollapsed && <h1 className="text-xl font-semibold tracking-tight">Otto</h1>}
+                {!isCollapsed && <h1 className="text-xl font-semibold tracking-tight">otto</h1>}
                 <button
                     onClick={() => setIsCollapsed(!isCollapsed)}
                     className="p-1 hover:bg-accent rounded-md transition-colors"

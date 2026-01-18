@@ -13,7 +13,7 @@ const statusConfig = {
     connected: { label: 'Connected', color: 'bg-foreground' },
     listening: { label: 'Listening...', color: 'bg-foreground animate-pulse' },
     processing: { label: 'Processing...', color: 'bg-muted-foreground animate-pulse' },
-    speaking: { label: 'Otto is speaking', color: 'bg-foreground animate-pulse' },
+    speaking: { label: 'otto is speaking', color: 'bg-foreground animate-pulse' },
     error: { label: 'Error', color: 'bg-muted-foreground' },
 }
 
