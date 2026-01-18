@@ -77,7 +77,7 @@ function DashboardContent() {
     // Get session from LiveKit context
     const session = useSessionContext()
     const isConnected = session.isConnected
-    const isConnecting = session.state === 'connecting'
+    const isConnecting = session.connectionState === 'connecting'
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
