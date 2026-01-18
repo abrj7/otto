@@ -108,23 +108,54 @@ export async function GET(request: NextRequest) {
                 repoRes.json(),
             ])
 
-            // Format commits
-            const formattedCommits = commits.map((commit: any) => ({
-                id: commit.sha,
-                type: 'commit',
-                title: commit.commit.message.split('\n')[0],
-                author: commit.commit.author?.name || commit.author?.login || 'Unknown',
-                date: commit.commit.author?.date,
-                timeAgo: getTimeAgo(new Date(commit.commit.author?.date)),
-                sha: commit.sha.substring(0, 7),
-                url: commit.html_url,
-            }))
+            // Format commits - fetch details for top 5 to get file changes
+            const recentCommits = commits.slice(0, 5)
+            const detailedCommits = await Promise.all(
+                recentCommits.map(async (commit: any) => {
+                    try {
+                        // Fetch individual commit to get files/patch
+                        const detailRes = await fetch(commit.url, {
+                            headers
+                        })
+                        const detail = detailRes.ok ? await detailRes.json() : null
+
+                        return {
+                            id: commit.sha,
+                            type: 'commit',
+                            title: commit.commit.message.split('\n')[0],
+                            message: commit.commit.message, // Full message
+                            author: commit.commit.author?.name || commit.author?.login || 'Unknown',
+                            date: commit.commit.author?.date,
+                            timeAgo: getTimeAgo(new Date(commit.commit.author?.date)),
+                            sha: commit.sha.substring(0, 7),
+                            url: commit.html_url,
+                            // Add detailed file info
+                            files: detail?.files?.map((f: any) => ({
+                                filename: f.filename,
+                                status: f.status,
+                                additions: f.additions,
+                                deletions: f.deletions,
+                                patch: f.patch // The actual code change!
+                            })) || []
+                        }
+                    } catch (e) {
+                        return {
+                            id: commit.sha,
+                            type: 'commit',
+                            title: commit.commit.message,
+                            author: 'Unknown',
+                            timeAgo: 'recently'
+                        }
+                    }
+                })
+            )
 
             // Format PRs
             const formattedPRs = pulls.map((pr: any) => ({
                 id: pr.id,
                 type: 'pr',
                 title: pr.title,
+                body: pr.body, // Include body for context
                 author: pr.user?.login || 'Unknown',
                 state: pr.state,
                 merged: pr.merged_at !== null,
@@ -141,6 +172,7 @@ export async function GET(request: NextRequest) {
                     id: issue.id,
                     type: 'issue',
                     title: issue.title,
+                    body: issue.body,
                     author: issue.user?.login || 'Unknown',
                     state: issue.state,
                     date: issue.created_at,
@@ -160,7 +192,7 @@ export async function GET(request: NextRequest) {
                     language: repoInfo.language,
                     url: repoInfo.html_url,
                 },
-                commits: formattedCommits,
+                commits: detailedCommits,
                 pullRequests: formattedPRs,
                 issues: formattedIssues,
             })

@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 
 const navItems = [
-    { name: "My Briefings", href: "/briefings", icon: FileText },
+    { name: "My Briefings", href: "/dashboard", icon: FileText },
     { name: "Calendar", href: "/calendar", icon: Calendar },
     { name: "Slack Updates", href: "/slack", icon: MessageSquare },
     { name: "GitHub Activity", href: "/github", icon: Github },
