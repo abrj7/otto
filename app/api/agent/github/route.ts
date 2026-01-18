@@ -10,6 +10,9 @@ const supabaseAdmin = createAdminClient(
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const userId = searchParams.get('user_id')
+    const action = searchParams.get('action') || 'repos'
+    const owner = searchParams.get('owner')
+    const repo = searchParams.get('repo')
 
     if (!userId) {
         return NextResponse.json({ error: 'Missing user_id parameter' }, { status: 400 })
@@ -30,34 +33,109 @@ export async function GET(request: NextRequest) {
         }, { status: 400 })
     }
 
-    try {
-        const response = await fetch('https://api.github.com/user/repos?sort=updated&per_page=20', {
-            headers: {
-                Authorization: `Bearer ${integration.access_token}`,
-                Accept: 'application/vnd.github+json',
-            },
-        })
+    const headers = {
+        Authorization: `Bearer ${integration.access_token}`,
+        Accept: 'application/vnd.github+json',
+    }
 
-        if (!response.ok) {
-            const error = await response.json()
-            return NextResponse.json({ error: error.message }, { status: response.status })
+    try {
+        if (action === 'repos') {
+            const response = await fetch('https://api.github.com/user/repos?sort=updated&per_page=20', { headers })
+
+            if (!response.ok) {
+                const error = await response.json()
+                return NextResponse.json({ error: error.message }, { status: response.status })
+            }
+
+            const repos = await response.json()
+            return NextResponse.json({
+                connected: true,
+                repos: repos.map((r: any) => ({
+                    id: r.id,
+                    name: r.name,
+                    fullName: r.full_name,
+                    description: r.description,
+                    private: r.private,
+                    updatedAt: r.updated_at,
+                }))
+            })
         }
 
-        const repos = await response.json()
+        if (action === 'details') {
+            if (!owner || !repo) {
+                return NextResponse.json({ error: 'Missing owner or repo' }, { status: 400 })
+            }
 
-        return NextResponse.json({
-            connected: true,
-            repos: repos.map((r: any) => ({
-                id: r.id,
-                name: r.name,
-                fullName: r.full_name,
-                description: r.description,
-                private: r.private,
-                updatedAt: r.updated_at,
+            const [commitsRes, pullsRes, issuesRes] = await Promise.all([
+                fetch(`https://api.github.com/repos/${owner}/${repo}/commits?per_page=10`, { headers }),
+                fetch(`https://api.github.com/repos/${owner}/${repo}/pulls?state=all&per_page=10`, { headers }),
+                fetch(`https://api.github.com/repos/${owner}/${repo}/issues?state=all&per_page=10`, { headers })
+            ])
+
+            const [commits, pulls, issues] = await Promise.all([
+                commitsRes.ok ? commitsRes.json() : [],
+                pullsRes.ok ? pullsRes.json() : [],
+                issuesRes.ok ? issuesRes.json() : []
+            ])
+
+            // Fetch detailed commit info (patches) for top 5
+            const recentCommits = commits.slice(0, 5)
+            const detailedCommits = await Promise.all(
+                recentCommits.map(async (commit: any) => {
+                    try {
+                        const detailRes = await fetch(commit.url, { headers })
+                        const detail = detailRes.ok ? await detailRes.json() : null
+
+                        return {
+                            id: commit.sha,
+                            type: 'commit',
+                            title: commit.commit.message.split('\n')[0],
+                            message: commit.commit.message,
+                            author: commit.commit.author?.name || commit.author?.login || 'Unknown',
+                            date: commit.commit.author?.date,
+                            timeAgo: getTimeAgo(new Date(commit.commit.author?.date)),
+                            files: detail?.files?.map((f: any) => ({
+                                filename: f.filename,
+                                status: f.status,
+                                patch: f.patch
+                            })) || []
+                        }
+                    } catch {
+                        return {
+                            id: commit.sha,
+                            title: commit.commit.message,
+                            author: 'Unknown'
+                        }
+                    }
+                })
+            )
+
+            const formattedPRs = pulls.map((pr: any) => ({
+                id: pr.id,
+                title: pr.title,
+                author: pr.user?.login || 'Unknown',
+                state: pr.state,
+                timeAgo: getTimeAgo(new Date(pr.created_at))
             }))
-        })
+
+            return NextResponse.json({
+                commits: detailedCommits,
+                pullRequests: formattedPRs,
+                repo: { name: `${owner}/${repo}` }
+            })
+        }
+
+        return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
     } catch (err) {
-        console.error('GitHub repos fetch error:', err)
-        return NextResponse.json({ error: 'Failed to fetch repos' }, { status: 500 })
+        console.error('GitHub fetch error:', err)
+        return NextResponse.json({ error: 'Failed' }, { status: 500 })
     }
+}
+
+function getTimeAgo(date: Date): string {
+    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000)
+    if (seconds < 60) return 'just now'
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
+    return `${Math.floor(seconds / 86400)}d ago`
 }
