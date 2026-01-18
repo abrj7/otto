@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
 
         const token = new AccessToken(apiKey, apiSecret, {
             identity: user_id,
+            metadata: JSON.stringify({ user_id }) // Pass user_id to agent
         })
 
         token.addGrant({

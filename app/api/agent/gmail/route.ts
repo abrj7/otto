@@ -1,6 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
 // Admin client for DB operations (bypasses RLS)
 const supabaseAdmin = createAdminClient(
@@ -8,23 +7,21 @@ const supabaseAdmin = createAdminClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-export async function GET(request: Request) {
-    const { searchParams } = new URL(request.url)
+export async function GET(request: NextRequest) {
+    const searchParams = request.nextUrl.searchParams
+    const userId = searchParams.get('user_id')
     const includeFull = searchParams.get('full') === 'true'
     const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 20)
 
-    const supabase = await createClient()
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-
-    if (userError || !user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!userId) {
+        return NextResponse.json({ error: 'Missing user_id parameter' }, { status: 400 })
     }
 
     // Get Google token from user_integrations using admin client
     const { data: integration } = await supabaseAdmin
         .from('user_integrations')
         .select('access_token')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('provider', 'google')
         .single()
 

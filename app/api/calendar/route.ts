@@ -8,7 +8,10 @@ const supabaseAdmin = createAdminClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-export async function GET() {
+export async function GET(request: Request) {
+    const { searchParams } = new URL(request.url)
+    const timeframe = searchParams.get('timeframe') || 'week' // today, week, next-event
+
     const supabase = await createClient()
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
@@ -41,17 +44,32 @@ export async function GET() {
     }
 
     try {
-        // Get events for the next 7 days
+        // Calculate time range based on timeframe
         const now = new Date()
-        const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+        let timeMin = now.toISOString()
+        let timeMax: string
+        let maxResults = 10
+
+        if (timeframe === 'today') {
+            const endOfDay = new Date(now)
+            endOfDay.setHours(23, 59, 59, 999)
+            timeMax = endOfDay.toISOString()
+        } else if (timeframe === 'next-event') {
+            maxResults = 1
+            const nextMonth = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+            timeMax = nextMonth.toISOString()
+        } else { // week
+            const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+            timeMax = nextWeek.toISOString()
+        }
 
         const response = await fetch(
             `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
-            `timeMin=${now.toISOString()}&` +
-            `timeMax=${nextWeek.toISOString()}&` +
+            `timeMin=${timeMin}&` +
+            `timeMax=${timeMax}&` +
             `singleEvents=true&` +
             `orderBy=startTime&` +
-            `maxResults=20`,
+            `maxResults=${maxResults}`,
             {
                 headers: {
                     Authorization: `Bearer ${providerToken}`,
