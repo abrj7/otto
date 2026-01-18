@@ -32,7 +32,7 @@ export const BriefingSchema = z.object({
     rollup: z.object({
         email: z.object({ unread_count: z.number() }),
         calendar: z.object({ today_count: z.number(), next_event_id: z.string().optional() }),
-        github: z.object({ active_repos: z.array(z.string()), open_prs: z.number().optional() })
+        github: z.object({ active_repos: z.array(z.string()), open_prs: z.number().nullable().optional() })
     }),
     debug: z.object({
         compression: z.object({
