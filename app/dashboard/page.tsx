@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MicButton } from '@/components/voice/MicButton'
 import { VoiceStatus } from '@/components/voice/VoiceStatus'
-import { VoiceOrbs } from '@/components/voice/VoiceOrbs'
-import { Send, RefreshCw, Settings, ChevronLeft, Search, FileText, Calendar, MessageSquare, Github, Mail, CheckCircle2, Clock, ArrowRight } from 'lucide-react'
+import { LiveKitSession, VoiceOrbs, useSessionContext } from '@/components/voice/LiveKitSession'
+import { Send, RefreshCw, Settings, ChevronLeft, Search, FileText, Calendar, MessageSquare, Github, Mail, CheckCircle2, Clock, ArrowRight, Phone, PhoneOff } from 'lucide-react'
 
 // Pre-calculated wave paths to avoid hydration mismatch
 const tealWavePaths = [
@@ -63,10 +63,21 @@ const SlackIcon = () => (
 )
 
 export default function DashboardPage() {
+    return (
+        <LiveKitSession>
+            <DashboardContent />
+        </LiveKitSession>
+    )
+}
+
+function DashboardContent() {
     const [query, setQuery] = useState('')
     const [isLoading, setIsLoading] = useState(false)
-    const [voiceStatus, setVoiceStatus] = useState<'idle' | 'listening' | 'processing' | 'speaking'>('idle')
-    const [isSpeaking, setIsSpeaking] = useState(false)
+    
+    // Get session from LiveKit context
+    const session = useSessionContext()
+    const isConnected = session.isConnected
+    const isConnecting = session.state === 'connecting'
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -78,10 +89,19 @@ export default function DashboardPage() {
         }, 1000)
     }
 
-    const toggleSpeaking = () => {
-        setIsSpeaking(!isSpeaking)
-        setVoiceStatus(isSpeaking ? 'idle' : 'speaking')
+    const handleVoiceToggle = () => {
+        if (isConnected) {
+            session.end()
+        } else {
+            session.start()
+        }
     }
+
+    // Map connection state to voice status
+    const voiceStatus: 'idle' | 'listening' | 'processing' | 'speaking' = 
+        isConnecting ? 'processing' :
+        isConnected ? 'listening' :
+        'idle'
 
     const currentDate = new Date().toLocaleDateString('en-US', {
         weekday: 'long',
@@ -301,22 +321,41 @@ export default function DashboardPage() {
                 {/* Voice Agent Panel */}
                 <aside className="w-72 bg-[#0f0f10]/80 backdrop-blur-md border-l border-white/5 flex flex-col items-center justify-center">
                     <div className="flex-1 flex items-center justify-center">
-                        <VoiceOrbs isSpeaking={isSpeaking} />
+                        <VoiceOrbs />
                     </div>
                     
-                    {/* Demo Toggle Button */}
-                    <div className="p-6 w-full">
+                    {/* Connection Button */}
+                    <div className="p-6 w-full space-y-3">
                         <Button
-                            onClick={toggleSpeaking}
-                            className={`w-full ${isSpeaking 
-                                ? 'bg-gradient-to-r from-teal-600 to-orange-600 hover:from-teal-700 hover:to-orange-700' 
-                                : 'bg-white/10 hover:bg-white/20'
+                            onClick={handleVoiceToggle}
+                            disabled={isConnecting}
+                            className={`w-full flex items-center justify-center gap-2 ${
+                                isConnected 
+                                    ? 'bg-red-600 hover:bg-red-700' 
+                                    : isConnecting
+                                        ? 'bg-yellow-600 hover:bg-yellow-700'
+                                        : 'bg-gradient-to-r from-teal-600 to-orange-600 hover:from-teal-700 hover:to-orange-700'
                             } text-white border-0`}
                         >
-                            {isSpeaking ? 'Stop Speaking' : 'Start Speaking'}
+                            {isConnected ? (
+                                <>
+                                    <PhoneOff className="w-4 h-4" />
+                                    End Call
+                                </>
+                            ) : isConnecting ? (
+                                'Connecting...'
+                            ) : (
+                                <>
+                                    <Phone className="w-4 h-4" />
+                                    Talk to Otto
+                                </>
+                            )}
                         </Button>
-                        <p className="text-[#4b4b4b] text-xs text-center mt-2">
-                            Demo: Toggle voice animation
+                        
+                        <p className="text-[#4b4b4b] text-xs text-center">
+                            {isConnected 
+                                ? 'Speaking with Otto...' 
+                                : 'Click to start a voice conversation'}
                         </p>
                     </div>
                 </aside>
