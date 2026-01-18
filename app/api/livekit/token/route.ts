@@ -29,6 +29,8 @@ export async function POST(req: NextRequest) {
 
         const token = new AccessToken(apiKey, apiSecret, {
             identity: user_id,
+            name: user_id,  // Used by agent to identify user
+            metadata: JSON.stringify({ user_id }),  // Pass user context
         })
 
         token.addGrant({
@@ -40,6 +42,7 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({
             token: await token.toJwt(),
+            room_name,
         })
     } catch (error) {
         console.error('LiveKit token error:', error)
