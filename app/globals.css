@@ -48,7 +48,7 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
+  --background: #EEEEEE;
   --foreground: oklch(0.141 0.005 285.823);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.141 0.005 285.823);
@@ -71,7 +71,7 @@
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
+  --sidebar: #EEEEEE;
   --sidebar-foreground: oklch(0.141 0.005 285.823);
   --sidebar-primary: oklch(0.21 0.006 285.885);
   --sidebar-primary-foreground: oklch(0.985 0 0);
@@ -82,11 +82,11 @@
 }
 
 .dark {
-  --background: oklch(0.141 0.005 285.823);
+  --background: #1A1A1A;
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.21 0.006 285.885);
+  --card: #1A1A1A;
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.21 0.006 285.885);
+  --popover: #1A1A1A;
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.92 0.004 286.32);
   --primary-foreground: oklch(0.21 0.006 285.885);
@@ -102,10 +102,11 @@
   --ring: oklch(0.552 0.016 285.938);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
+  --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.21 0.006 285.885);
+  --sidebar: #1A1A1A;
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
@@ -117,77 +118,10 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
   }
 }
-
-/* Voice Orbs Animations */
-@keyframes pulse-gentle {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(0.95);
-    opacity: 0.8;
-  }
-}
-
-@keyframes voice-orb {
-  0%, 100% {
-    transform: scaleY(1);
-  }
-  25% {
-    transform: scaleY(1.4);
-  }
-  50% {
-    transform: scaleY(0.8);
-  }
-  75% {
-    transform: scaleY(1.2);
-  }
-}
-
-.animate-pulse-gentle {
-  animation: pulse-gentle 2s ease-in-out infinite;
-}
-
-.animate-voice-orb {
-  animation: voice-orb 0.5s ease-in-out infinite;
-}
-
-/* Wave animations for background */
-@keyframes wave {
-  0%, 100% {
-    transform: translateX(0) scaleY(1);
-    opacity: 0.3;
-  }
-  50% {
-    transform: translateX(5px) scaleY(1.02);
-    opacity: 0.5;
-  }
-}
-
-@keyframes wave-slow {
-  0%, 100% {
-    transform: translateX(0);
-    opacity: 0.4;
-  }
-  50% {
-    transform: translateX(-3px);
-    opacity: 0.6;
-  }
-}
-
-.animate-wave {
-  animation: wave 4s ease-in-out infinite;
-}
-
-.animate-wave-slow {
-  animation: wave-slow 6s ease-in-out infinite;
-}
-
-

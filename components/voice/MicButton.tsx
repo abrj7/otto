@@ -33,27 +33,27 @@ export function MicButton({ onTranscript, className }: MicButtonProps) {
             disabled={isProcessing}
             className={cn(
                 'relative w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300',
-                'focus:outline-none focus:ring-4 focus:ring-blue-500/50',
-                isListening && 'bg-red-500 hover:bg-red-600 animate-pulse',
-                isProcessing && 'bg-yellow-500 cursor-not-allowed',
-                !isListening && !isProcessing && 'bg-blue-500 hover:bg-blue-600',
+                'focus:outline-none focus:ring-2 focus:ring-foreground/20',
+                isListening && 'bg-foreground text-background animate-pulse',
+                isProcessing && 'bg-muted cursor-not-allowed',
+                !isListening && !isProcessing && 'bg-accent hover:bg-accent/80',
                 className
             )}
         >
             {/* Ripple animation when listening */}
             {isListening && (
                 <>
-                    <span className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-75" />
-                    <span className="absolute inset-0 rounded-full bg-red-500 animate-pulse" />
+                    <span className="absolute inset-0 rounded-full bg-foreground animate-ping opacity-25" />
+                    <span className="absolute inset-0 rounded-full bg-foreground animate-pulse opacity-50" />
                 </>
             )}
 
             {isProcessing ? (
-                <Loader2 className="w-8 h-8 text-white animate-spin relative z-10" />
+                <Loader2 className="w-8 h-8 text-muted-foreground animate-spin relative z-10" />
             ) : isListening ? (
-                <MicOff className="w-8 h-8 text-white relative z-10" />
+                <MicOff className="w-8 h-8 text-background relative z-10" />
             ) : (
-                <Mic className="w-8 h-8 text-white relative z-10" />
+                <Mic className="w-8 h-8 text-foreground relative z-10" />
             )}
         </button>
     )

@@ -18,16 +18,11 @@ export function VoiceOrbs({ isSpeaking = false, className }: VoiceOrbsProps) {
                     <div
                         key={index}
                         className={cn(
-                            "w-12 h-12 rounded-full bg-white transition-all duration-300",
-                            isSpeaking 
-                                ? "animate-voice-orb" 
-                                : "animate-pulse-gentle"
+                            "w-12 h-12 rounded-full bg-foreground/20 transition-all duration-300",
+                            (isSpeaking || !isSpeaking) && "animate-pulse"
                         )}
                         style={{
-                            animationDelay: `${index * 100}ms`,
-                            transform: isSpeaking 
-                                ? `scaleY(${1 + Math.sin(index * 0.5) * 0.3})` 
-                                : 'scaleY(1)',
+                            animationDelay: `${index * 150}ms`,
                         }}
                     />
                 ))}
