@@ -1,46 +1,37 @@
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { getValidGoogleToken } from '@/lib/google-auth'
 
-// Admin client for DB operations (bypasses RLS)
-const supabaseAdmin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
-export async function GET(request: Request) {
-    const { searchParams } = new URL(request.url)
-    const timeframe = searchParams.get('timeframe') || 'week' // today, week, next-event
-
+export async function GET(request: NextRequest) {
     const supabase = await createClient()
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-    if (userError || !user) {
+    // Get timeframe from query params
+    const { searchParams } = new URL(request.url)
+    const timeframe = searchParams.get('timeframe') || 'week'
+
+    // Get user - either from session cookie OR from X-User-ID header (for agent)
+    let userId: string | null = null
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+        userId = user.id
+    } else {
+        // Fallback to X-User-ID header (used by voice agent)
+        userId = request.headers.get('X-User-ID')
+    }
+
+    if (!userId) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Try to get Google token from user_integrations first (using admin to bypass RLS)
-    const { data: integration } = await supabaseAdmin
-        .from('user_integrations')
-        .select('access_token')
-        .eq('user_id', user.id)
-        .eq('provider', 'google')
-        .single()
-
-
-    // Fallback to session provider_token if user_integrations doesn't have it
-    let providerToken = integration?.access_token
-
-    if (!providerToken) {
-        const { data: { session } } = await supabase.auth.getSession()
-        providerToken = session?.provider_token
-    }
+    // Get valid Google token (auto-refreshes if expired)
+    const providerToken = await getValidGoogleToken(userId)
 
     if (!providerToken) {
         return NextResponse.json({
-            error: 'Google Calendar not connected',
+            error: 'Google Calendar not connected or token expired. Please reconnect Google.',
             connected: false
-        }, { status: 400 })
+        }, { status: 401 })
     }
 
     try {
@@ -137,4 +128,111 @@ function isToday(dateString: string): boolean {
     const date = new Date(dateString)
     const today = new Date()
     return date.toDateString() === today.toDateString()
+}
+
+// POST - Create a new calendar event
+export async function POST(request: NextRequest) {
+    const supabase = await createClient()
+
+    // Get user - either from session cookie OR from X-User-ID header (for agent)
+    let userId: string | null = null
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+        userId = user.id
+    } else {
+        // Fallback to X-User-ID header (used by voice agent)
+        userId = request.headers.get('X-User-ID')
+    }
+
+    if (!userId) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Get valid Google token (auto-refreshes if expired)
+    const providerToken = await getValidGoogleToken(userId)
+
+    if (!providerToken) {
+        return NextResponse.json({
+            error: 'Google Calendar not connected or token expired. Please reconnect Google.',
+            connected: false
+        }, { status: 401 })
+    }
+
+    try {
+        const body = await request.json()
+        const { title, date, time, duration = 60, attendees = [] } = body
+
+        if (!title || !date || !time) {
+            return NextResponse.json({
+                error: 'Missing required fields: title, date, time'
+            }, { status: 400 })
+        }
+
+        // Build start/end times
+        const startDateTime = new Date(`${date}T${time}:00`)
+
+        if (isNaN(startDateTime.getTime())) {
+            return NextResponse.json({
+                error: 'Invalid date or time format. Please use YYYY-MM-DD and HH:MM.',
+                received: { date, time }
+            }, { status: 400 })
+        }
+
+        const endDateTime = new Date(startDateTime.getTime() + duration * 60 * 1000)
+
+        const eventPayload: any = {
+            summary: title,
+            start: {
+                dateTime: startDateTime.toISOString(),
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            },
+            end: {
+                dateTime: endDateTime.toISOString(),
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            },
+        }
+
+        // Add attendees if provided
+        if (attendees.length > 0) {
+            eventPayload.attendees = attendees.map((email: string) => ({ email }))
+        }
+
+        const response = await fetch(
+            'https://www.googleapis.com/calendar/v3/calendars/primary/events',
+            {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${providerToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(eventPayload),
+            }
+        )
+
+        if (!response.ok) {
+            const errorData = await response.json()
+            console.error('Calendar create error:', errorData)
+            return NextResponse.json({
+                error: 'Failed to create event',
+                details: errorData
+            }, { status: response.status })
+        }
+
+        const createdEvent = await response.json()
+
+        return NextResponse.json({
+            success: true,
+            event: {
+                id: createdEvent.id,
+                title: createdEvent.summary,
+                start: createdEvent.start?.dateTime,
+                htmlLink: createdEvent.htmlLink,
+            }
+        }, { status: 201 })
+
+    } catch (err) {
+        console.error('Calendar Create Error:', err)
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    }
 }
