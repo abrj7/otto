@@ -1,20 +1,30 @@
 """
 Otto Voice Agent - Token Company Compression
 Uses bear-1 model to compress context before LLM processing
+Optional dependency - works without tokenc installed
 """
 
 import os
 import logging
-from tokenc import TokenClient
+
+# Try to import tokenc, but make it optional
+try:
+    from tokenc import TokenClient
+    TOKENC_AVAILABLE = True
+except ImportError:
+    TOKENC_AVAILABLE = False
+    TokenClient = None
 
 # Initialize Token Company client
 TTC_API_KEY = os.getenv("TTC_API_KEY")
 _client = None
 
 
-def get_client() -> TokenClient:
+def get_client():
     """Get or create Token Company client."""
     global _client
+    if not TOKENC_AVAILABLE:
+        return None
     if _client is None and TTC_API_KEY:
         _client = TokenClient(api_key=TTC_API_KEY)
     return _client
@@ -34,7 +44,7 @@ async def compress_text(text: str, aggressiveness: float = 0.7) -> str:
     client = get_client()
     
     if not client:
-        logging.debug("Token Company not configured, skipping compression")
+        # tokenc not installed or not configured - just return original
         return text
     
     # Skip short text

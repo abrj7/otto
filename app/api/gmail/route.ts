@@ -1,12 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
-
-// Admin client for DB operations (bypasses RLS)
-const supabaseAdmin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { getValidGoogleToken } from '@/lib/google-auth'
 
 export async function GET(request: NextRequest) {
     const supabase = await createClient()
@@ -26,19 +20,14 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get Google token from user_integrations using admin client
-    const { data: integration } = await supabaseAdmin
-        .from('user_integrations')
-        .select('access_token')
-        .eq('user_id', userId)
-        .eq('provider', 'google')
-        .single()
+    // Get valid Google token (auto-refreshes if expired)
+    const accessToken = await getValidGoogleToken(userId)
 
-    if (!integration?.access_token) {
+    if (!accessToken) {
         return NextResponse.json({
-            error: 'Gmail not connected',
+            error: 'Gmail not connected or token expired. Please reconnect Google.',
             connected: false
-        }, { status: 400 })
+        }, { status: 401 })
     }
 
     try {
@@ -47,7 +36,7 @@ export async function GET(request: NextRequest) {
             'https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=20&labelIds=INBOX',
             {
                 headers: {
-                    Authorization: `Bearer ${integration.access_token}`,
+                    Authorization: `Bearer ${accessToken}`,
                 },
             }
         )
@@ -70,7 +59,7 @@ export async function GET(request: NextRequest) {
                     `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`,
                     {
                         headers: {
-                            Authorization: `Bearer ${integration.access_token}`,
+                            Authorization: `Bearer ${accessToken}`,
                         },
                     }
                 )
@@ -102,8 +91,17 @@ export async function GET(request: NextRequest) {
             }
         })
 
+        // Also create events format for voice agent
+        const events = formattedMessages.map((msg: any) => ({
+            actor: msg.from,
+            title: msg.subject,
+            date: msg.date,
+            unread: msg.unread,
+        }))
+
         return NextResponse.json({
             messages: formattedMessages,
+            events,  // For voice agent compatibility
             connected: true
         })
     } catch (err) {

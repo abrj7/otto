@@ -69,7 +69,7 @@ async def get_github_activity(
     log_tool_call("get_github_activity", repo_name=repo_name, days_back=days_back)
     try:
         async with httpx.AsyncClient() as client:
-            params = {}
+            params = {"action": "events"}  # Use events endpoint
             if repo_name:
                 params["repo"] = repo_name
             if days_back:
@@ -250,6 +250,14 @@ async def create_calendar_event(
             event_date = datetime.now().strftime("%Y-%m-%d")
         elif date_lower == "tomorrow":
             event_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+        elif date_lower in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
+            days_of_week = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+            target_weekday = days_of_week.index(date_lower)
+            current_weekday = datetime.now().weekday()
+            days_ahead = target_weekday - current_weekday
+            if days_ahead <= 0: # Target day is today or has passed this week
+                days_ahead += 7
+            event_date = (datetime.now() + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
         elif date_lower == "next week":
             event_date = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
         else:

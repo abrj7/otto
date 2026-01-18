@@ -1,12 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
-
-// Admin client for DB operations (bypasses RLS)
-const supabaseAdmin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { getValidGoogleToken } from '@/lib/google-auth'
 
 export async function GET(request: NextRequest) {
     const supabase = await createClient()
@@ -26,28 +20,14 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Try to get Google token from user_integrations first (using admin to bypass RLS)
-    const { data: integration } = await supabaseAdmin
-        .from('user_integrations')
-        .select('access_token')
-        .eq('user_id', userId)
-        .eq('provider', 'google')
-        .single()
-
-
-    // Fallback to session provider_token if user_integrations doesn't have it
-    let providerToken = integration?.access_token
-
-    if (!providerToken) {
-        const { data: { session } } = await supabase.auth.getSession()
-        providerToken = session?.provider_token
-    }
+    // Get valid Google token (auto-refreshes if expired)
+    const providerToken = await getValidGoogleToken(userId)
 
     if (!providerToken) {
         return NextResponse.json({
-            error: 'Google Calendar not connected',
+            error: 'Google Calendar not connected or token expired. Please reconnect Google.',
             connected: false
-        }, { status: 400 })
+        }, { status: 401 })
     }
 
     try {
@@ -150,24 +130,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get Google token
-    const { data: integration } = await supabaseAdmin
-        .from('user_integrations')
-        .select('access_token')
-        .eq('user_id', userId)
-        .eq('provider', 'google')
-        .single()
-
-    let providerToken = integration?.access_token
-
-    if (!providerToken) {
-        const { data: { session } } = await supabase.auth.getSession()
-        providerToken = session?.provider_token
-    }
+    // Get valid Google token (auto-refreshes if expired)
+    const providerToken = await getValidGoogleToken(userId)
 
     if (!providerToken) {
         return NextResponse.json({
-            error: 'Google Calendar not connected',
+            error: 'Google Calendar not connected or token expired. Please reconnect Google.',
             connected: false
         }, { status: 401 })
     }
@@ -184,6 +152,14 @@ export async function POST(request: NextRequest) {
 
         // Build start/end times
         const startDateTime = new Date(`${date}T${time}:00`)
+
+        if (isNaN(startDateTime.getTime())) {
+            return NextResponse.json({
+                error: 'Invalid date or time format. Please use YYYY-MM-DD and HH:MM.',
+                received: { date, time }
+            }, { status: 400 })
+        }
+
         const endDateTime = new Date(startDateTime.getTime() + duration * 60 * 1000)
 
         const eventPayload: any = {
