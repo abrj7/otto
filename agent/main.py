@@ -1,67 +1,109 @@
 """
 OTTO - LiveKit Voice Agent
-Main entry point for the Python agent
+Using Google Gemini Live Realtime API
 """
 
 import os
-import httpx
+import json
+from pathlib import Path
 from dotenv import load_dotenv
-from livekit import agents
-from livekit.agents import AgentSession, Agent, RoomInputOptions
+
+from livekit.agents import (
+    Agent,
+    AgentSession,
+    JobContext,
+    WorkerOptions,
+    cli,
+)
 from livekit.plugins import silero
+from livekit.plugins import google
 
-load_dotenv()
+from prompts import AGENT_INSTRUCTION, SESSION_INSTRUCTION
+from tools import (
+    get_github_activity,
+    get_unread_emails,
+    get_calendar_events,
+    create_calendar_event,
+    send_email,
+    search_web,
+    set_current_user_id,
+)
 
-API_URL = os.getenv("API_URL", "http://localhost:3000")
-WORKSPACE_ID = os.getenv("WORKSPACE_ID", "demo")
+# Load .env.local from project root (parent of agent directory)
+project_root = Path(__file__).parent.parent
+env_file = project_root / ".env.local"
+if env_file.exists():
+    load_dotenv(env_file)
+else:
+    load_dotenv()
 
 
 class OttoAgent(Agent):
-    """Otto - Voice-first situational awareness agent"""
+    """Otto - Voice-first situational awareness agent with data access"""
 
     def __init__(self) -> None:
         super().__init__(
-            instructions="""You are Otto, a voice-first situational awareness agent for engineering teams.
-You speak like a calm senior engineer giving a standup update—factual, brief, no filler.
-
-Rules:
-- Only use provided data, never invent or speculate
-- Prefer short, spoken sentences
-- No markdown, emojis, or complex formatting
-- Answer naturally as if speaking aloud
-- When listing items, use "First..., Second..., Third..."
-"""
+            instructions=AGENT_INSTRUCTION,
+            tools=[
+                get_github_activity,
+                get_unread_emails,
+                get_calendar_events,
+                create_calendar_event,
+                send_email,
+                search_web,
+            ],
         )
 
 
-async def entrypoint(ctx: agents.JobContext):
+async def entrypoint(ctx: JobContext):
     """Main entrypoint for the agent"""
     await ctx.connect()
 
+    # Get the user who connected (for API authentication)
+    user_id = None
+    for participant in ctx.room.remote_participants.values():
+        user_id = participant.identity
+        print(f"\n🔑 Connected user: {user_id}")
+
+        # Try to get from metadata if available
+        if participant.metadata:
+            try:
+                metadata = json.loads(participant.metadata)
+                if "user_id" in metadata:
+                    user_id = metadata["user_id"]
+                    print(f"📋 User ID from metadata: {user_id}")
+            except json.JSONDecodeError:
+                pass
+        break
+
+    # Set the user ID for tools to use
+    if user_id:
+        set_current_user_id(user_id)
+    else:
+        print("⚠️ No user ID found - APIs will require login")
+
+    # Use Google Gemini Realtime API
     session = AgentSession(
-        stt="deepgram",  # or "assemblyai"
-        llm="google",
-        tts="cartesia",
+        llm=google.realtime.RealtimeModel(
+            model="gemini-2.5-flash-native-audio-preview-09-2025",
+        ),
         vad=silero.VAD.load(),
     )
 
     await session.start(
         room=ctx.room,
         agent=OttoAgent(),
-        room_input_options=RoomInputOptions(
-            # Enable noise cancellation if available
-        ),
     )
 
     # Greet the user
     await session.generate_reply(
-        instructions="Greet the user briefly. Say something like 'Hey, I'm Otto. What do you need to know?'"
+        instructions=SESSION_INSTRUCTION,
     )
 
 
 if __name__ == "__main__":
-    agents.cli.run_app(
-        agents.WorkerOptions(
+    cli.run_app(
+        WorkerOptions(
             entrypoint_fnc=entrypoint,
         )
     )

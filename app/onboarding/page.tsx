@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { UserMenu } from '@/components/auth/UserMenu'
-import { Check, Plus, Users, Calendar } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Check, Plus, Users, Calendar, RefreshCw, Trash2, Unplug, Info, Moon, Sun } from 'lucide-react'
 
 interface Integration {
     type: string
@@ -59,6 +60,7 @@ const ZoomIcon = () => (
 export default function OnboardingPage() {
     const router = useRouter()
     const [toast, setToast] = useState<string | null>(null)
+    const [theme, setTheme] = useState<'light' | 'dark'>('dark')
     const [integrations, setIntegrations] = useState<Integration[]>([
         {
             type: 'github',
@@ -106,11 +108,27 @@ export default function OnboardingPage() {
             icon: <SlackIcon />,
             iconBg: 'bg-accent/40',
             connected: false,
+            provider: 'slack',
             comingSoon: true,
         },
     ])
 
-    // Check for OAuth callback results
+    useEffect(() => {
+        const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null
+        if (savedTheme) {
+            setTheme(savedTheme)
+            document.documentElement.classList.toggle('dark', savedTheme === 'dark')
+        } else {
+            document.documentElement.classList.add('dark')
+        }
+    }, [])
+
+    const toggleTheme = () => {
+        const newTheme = theme === 'light' ? 'dark' : 'light'
+        setTheme(newTheme)
+        localStorage.setItem('theme', newTheme)
+        document.documentElement.classList.toggle('dark', newTheme === 'dark')
+    }
     useEffect(() => {
         if (typeof window === 'undefined') return
 
@@ -163,13 +181,33 @@ export default function OnboardingPage() {
             return
         }
 
-        if (integration.connected) {
-            // Already connected - could add disconnect functionality here
-            return
-        }
-
-        // Redirect to OAuth
+        // Redirect to OAuth (works for both connect and reconnect)
         window.location.href = `/api/auth/${integration.provider}`
+    }
+
+    const handleDisconnect = async (integration: Integration) => {
+        if (!integration.connected || integration.comingSoon) return
+
+        try {
+            const res = await fetch(`/api/auth/disconnect?provider=${integration.provider}`, {
+                method: 'DELETE',
+            })
+
+            if (res.ok) {
+                setIntegrations(prev =>
+                    prev.map(i => (i.provider === integration.provider ? { ...i, connected: false } : i))
+                )
+                setToast(`${integration.name} disconnected successfully!`)
+                setTimeout(() => setToast(null), 3000)
+            } else {
+                setToast('Failed to disconnect. Please try again.')
+                setTimeout(() => setToast(null), 3000)
+            }
+        } catch (err) {
+            console.error('Disconnect error:', err)
+            setToast('Failed to disconnect. Please try again.')
+            setTimeout(() => setToast(null), 3000)
+        }
     }
 
     const connectedIntegrations = integrations.filter(i => i.connected)
@@ -178,7 +216,14 @@ export default function OnboardingPage() {
     return (
         <div className="min-h-screen bg-background text-foreground transition-colors duration-200">
             {/* User Menu - Fixed Top Right */}
-            <div className="fixed top-4 right-4 z-50">
+            <div className="fixed top-4 right-4 z-50 flex items-center gap-3">
+                <button
+                    onClick={toggleTheme}
+                    className="p-2.5 rounded-full bg-card border border-border hover:bg-accent transition-colors shadow-sm"
+                    title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+                >
+                    {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                </button>
                 <UserMenu />
             </div>
 
@@ -200,18 +245,15 @@ export default function OnboardingPage() {
                         {/* Integration Grid */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
                             {integrations.map((integration) => (
-                                <button
+                                <div
                                     key={integration.type}
-                                    onClick={() => handleConnect(integration)}
-                                    className={`
-                                        relative flex flex-col items-center justify-center p-8 rounded-xl
-                                        bg-card border transition-all duration-200 text-center
-                                        ${integration.connected
-                                            ? 'border-foreground ring-1 ring-foreground'
-                                            : 'border-border hover:border-muted-foreground hover:bg-accent/50'
-                                        }
-                                        ${integration.comingSoon ? 'opacity-60' : ''}
-                                    `}
+                                    className={cn(
+                                        "relative flex flex-col items-center p-8 rounded-2xl bg-card border transition-all duration-300 text-center group",
+                                        integration.connected
+                                            ? "border-foreground/20 ring-1 ring-foreground/10 shadow-lg shadow-black/20"
+                                            : "border-border hover:border-muted-foreground/30 hover:bg-accent/40 shadow-sm",
+                                        integration.comingSoon && "opacity-60"
+                                    )}
                                 >
                                     {integration.comingSoon && (
                                         <div className="absolute top-2 right-2 text-[10px] text-muted-foreground bg-accent px-1.5 py-0.5 rounded">
@@ -227,18 +269,54 @@ export default function OnboardingPage() {
                                     <span className="text-foreground text-sm font-medium">
                                         {integration.name}
                                     </span>
-                                    <div className="mt-4">
+                                    <div className="mt-auto w-full pt-4 flex flex-col items-center gap-3">
                                         {integration.connected ? (
-                                            <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-foreground">
-                                                <Check className="w-3 h-3" /> Connected
-                                            </div>
+                                            <>
+                                                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-[10px] font-bold uppercase tracking-wider border border-green-500/20">
+                                                    <Check className="w-3 h-3" /> Connected
+                                                </div>
+                                                <div className="flex flex-col gap-2 w-full">
+                                                    <button
+                                                        onClick={() => handleConnect(integration)}
+                                                        className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-accent/40 hover:bg-accent text-[11px] font-bold transition-all border border-border/50 hover:border-border group"
+                                                    >
+                                                        <RefreshCw className="w-3 h-3 text-muted-foreground group-hover:rotate-180 transition-transform duration-500" />
+                                                        Reconnect
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            handleDisconnect(integration)
+                                                        }}
+                                                        className="w-full flex items-center justify-center gap-2 py-1.5 rounded-lg text-red-500/60 hover:text-red-500 hover:bg-red-500/5 transition-all text-[10px] font-medium"
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                        Disconnect
+                                                    </button>
+                                                </div>
+                                            </>
                                         ) : (
-                                            <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                                <Plus className="w-3 h-3" /> Connect
-                                            </div>
+                                            <button
+                                                onClick={() => handleConnect(integration)}
+                                                disabled={integration.comingSoon}
+                                                className={cn(
+                                                    "w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all",
+                                                    integration.comingSoon
+                                                        ? "bg-accent/20 text-muted-foreground cursor-not-allowed"
+                                                        : "bg-foreground text-background hover:opacity-90 active:scale-[0.98]"
+                                                )}
+                                            >
+                                                {integration.comingSoon ? (
+                                                    "Coming Soon"
+                                                ) : (
+                                                    <>
+                                                        <Plus className="w-3.5 h-3.5" /> Connect
+                                                    </>
+                                                )}
+                                            </button>
                                         )}
                                     </div>
-                                </button>
+                                </div>
                             ))}
                         </div>
 

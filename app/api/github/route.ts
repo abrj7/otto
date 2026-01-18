@@ -1,12 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
-
-// Admin client for DB operations (bypasses RLS)
-const supabaseAdmin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { getValidGithubToken } from '@/lib/github-auth'
 
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
@@ -14,21 +8,23 @@ export async function GET(request: NextRequest) {
     const owner = searchParams.get('owner')
     const repo = searchParams.get('repo')
 
-    // Get user's GitHub token
+    // Get user - either from session cookie OR from X-User-ID header (for agent)
     const supabase = await createClient()
+    let userId: string | null = null
+
+    // Try cookie-based auth first
     const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+        userId = user.id
+    } else {
+        // Fallback to X-User-ID header (used by voice agent)
+        userId = request.headers.get('X-User-ID')
+    }
 
     let githubToken: string | null = null
 
-    if (user) {
-        const { data: integration } = await supabaseAdmin
-            .from('user_integrations')
-            .select('access_token')
-            .eq('user_id', user.id)
-            .eq('provider', 'github')
-            .single()
-
-        githubToken = integration?.access_token || null
+    if (userId) {
+        githubToken = await getValidGithubToken(userId)
     }
 
     const headers: Record<string, string> = {
@@ -37,6 +33,124 @@ export async function GET(request: NextRequest) {
 
     if (githubToken) {
         headers.Authorization = `Bearer ${githubToken}`
+    }
+
+    // Action: Get unified events for voice agent
+    if (action === 'events') {
+        if (!githubToken) {
+            return NextResponse.json({
+                error: 'GitHub not connected',
+                connected: false
+            }, { status: 401 })
+        }
+
+        const repoParam = searchParams.get('repo')
+        const days = parseInt(searchParams.get('days') || '1')
+
+        try {
+            // Get user info to find repos
+            const userResponse = await fetch('https://api.github.com/user', { headers })
+            if (!userResponse.ok) {
+                return NextResponse.json({ error: 'Failed to get user info' }, { status: 401 })
+            }
+            const user = await userResponse.json()
+            const username = user.login
+
+            // Get repos to fetch events from
+            let targetRepos: string[] = []
+            if (repoParam) {
+                if (repoParam.includes('/')) {
+                    // It's already a full name like "owner/repo"
+                    targetRepos = [repoParam]
+                } else {
+                    // It's a single name like "otto", try to find it in user's repos
+                    const reposResponse = await fetch(
+                        `https://api.github.com/user/repos?sort=updated&per_page=100`,
+                        { headers }
+                    )
+                    if (reposResponse.ok) {
+                        const repos = await reposResponse.json()
+                        const match = repos.find((r: any) => r.name.toLowerCase() === repoParam.toLowerCase())
+                        if (match) {
+                            targetRepos = [match.full_name]
+                        } else {
+                            // Fallback to user/repo if not found in list
+                            targetRepos = [`${username}/${repoParam}`]
+                        }
+                    } else {
+                        targetRepos = [`${username}/${repoParam}`]
+                    }
+                }
+            } else {
+                // Get user's recent repos
+                const reposResponse = await fetch('https://api.github.com/user/repos?sort=updated&per_page=5', { headers })
+                if (reposResponse.ok) {
+                    const repos = await reposResponse.json()
+                    targetRepos = repos.map((r: any) => r.full_name)
+                }
+            }
+
+            // Calculate date threshold
+            const sinceDate = new Date()
+            sinceDate.setDate(sinceDate.getDate() - days)
+            const sinceISO = sinceDate.toISOString()
+
+            // Fetch events from each repo
+            const allEvents: any[] = []
+
+            for (const fullName of targetRepos.slice(0, 3)) {
+                // Fetch commits
+                const commitsResponse = await fetch(
+                    `https://api.github.com/repos/${fullName}/commits?since=${sinceISO}&per_page=10`,
+                    { headers }
+                )
+                if (commitsResponse.ok) {
+                    const commits = await commitsResponse.json()
+                    for (const commit of commits) {
+                        allEvents.push({
+                            event_type: 'commit',
+                            actor: commit.commit?.author?.name || commit.author?.login || 'Unknown',
+                            title: commit.commit?.message?.split('\n')[0] || 'No message',
+                            date: commit.commit?.author?.date,
+                            repo: fullName,
+                        })
+                    }
+                }
+
+                // Fetch PRs
+                const prsResponse = await fetch(
+                    `https://api.github.com/repos/${fullName}/pulls?state=all&per_page=10`,
+                    { headers }
+                )
+                if (prsResponse.ok) {
+                    const prs = await prsResponse.json()
+                    for (const pr of prs) {
+                        if (new Date(pr.created_at) > sinceDate) {
+                            allEvents.push({
+                                event_type: 'pull_request',
+                                actor: pr.user?.login || 'Unknown',
+                                title: pr.title,
+                                date: pr.created_at,
+                                state: pr.state,
+                                repo: fullName,
+                            })
+                        }
+                    }
+                }
+            }
+
+            // Sort by date descending
+            allEvents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+            return NextResponse.json({
+                events: allEvents.slice(0, 20),
+                connected: true
+            })
+
+        } catch (err) {
+            console.error('GitHub events fetch error:', err)
+            return NextResponse.json({ error: 'Failed to fetch events' }, { status: 500 })
+        }
     }
 
     // Action: Get user's repos
@@ -108,23 +222,54 @@ export async function GET(request: NextRequest) {
                 repoRes.json(),
             ])
 
-            // Format commits
-            const formattedCommits = commits.map((commit: any) => ({
-                id: commit.sha,
-                type: 'commit',
-                title: commit.commit.message.split('\n')[0],
-                author: commit.commit.author?.name || commit.author?.login || 'Unknown',
-                date: commit.commit.author?.date,
-                timeAgo: getTimeAgo(new Date(commit.commit.author?.date)),
-                sha: commit.sha.substring(0, 7),
-                url: commit.html_url,
-            }))
+            // Format commits - fetch details for top 5 to get file changes
+            const recentCommits = commits.slice(0, 5)
+            const detailedCommits = await Promise.all(
+                recentCommits.map(async (commit: any) => {
+                    try {
+                        // Fetch individual commit to get files/patch
+                        const detailRes = await fetch(commit.url, {
+                            headers
+                        })
+                        const detail = detailRes.ok ? await detailRes.json() : null
+
+                        return {
+                            id: commit.sha,
+                            type: 'commit',
+                            title: commit.commit.message.split('\n')[0],
+                            message: commit.commit.message, // Full message
+                            author: commit.commit.author?.name || commit.author?.login || 'Unknown',
+                            date: commit.commit.author?.date,
+                            timeAgo: getTimeAgo(new Date(commit.commit.author?.date)),
+                            sha: commit.sha.substring(0, 7),
+                            url: commit.html_url,
+                            // Add detailed file info
+                            files: detail?.files?.map((f: any) => ({
+                                filename: f.filename,
+                                status: f.status,
+                                additions: f.additions,
+                                deletions: f.deletions,
+                                patch: f.patch // The actual code change!
+                            })) || []
+                        }
+                    } catch (e) {
+                        return {
+                            id: commit.sha,
+                            type: 'commit',
+                            title: commit.commit.message,
+                            author: 'Unknown',
+                            timeAgo: 'recently'
+                        }
+                    }
+                })
+            )
 
             // Format PRs
             const formattedPRs = pulls.map((pr: any) => ({
                 id: pr.id,
                 type: 'pr',
                 title: pr.title,
+                body: pr.body, // Include body for context
                 author: pr.user?.login || 'Unknown',
                 state: pr.state,
                 merged: pr.merged_at !== null,
@@ -141,6 +286,7 @@ export async function GET(request: NextRequest) {
                     id: issue.id,
                     type: 'issue',
                     title: issue.title,
+                    body: issue.body,
                     author: issue.user?.login || 'Unknown',
                     state: issue.state,
                     date: issue.created_at,
@@ -160,7 +306,7 @@ export async function GET(request: NextRequest) {
                     language: repoInfo.language,
                     url: repoInfo.html_url,
                 },
-                commits: formattedCommits,
+                commits: detailedCommits,
                 pullRequests: formattedPRs,
                 issues: formattedIssues,
             })
