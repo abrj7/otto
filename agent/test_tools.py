@@ -198,7 +198,7 @@ async def test_all_tools():
     results.append("TEST 7: Token Company Compression")
     results.append("-" * 40)
     try:
-        from compression import compress_text, get_client
+        from ttc_compression import compress_text, get_client
         client = get_client()
         if client:
             results.append("Token Company client: CONNECTED ✅")
