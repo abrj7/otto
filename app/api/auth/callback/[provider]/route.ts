@@ -127,8 +127,23 @@ async function exchangeCodeForToken(
         throw new Error(`Token exchange failed: ${errorText}`)
     }
 
-    return response.json()
+    const data = await response.json()
+
+    // GitHub returns 200 even on errors, so check for error field
+    if (data.error) {
+        console.error(`Token exchange error for ${provider}:`, data.error, data.error_description)
+        throw new Error(`Token exchange failed: ${data.error_description || data.error}`)
+    }
+
+    // Validate that we got an access token
+    if (!data.access_token) {
+        console.error(`No access token received for ${provider}:`, data)
+        throw new Error('No access token received from provider')
+    }
+
+    return data
 }
+
 
 export async function GET(
     request: NextRequest,

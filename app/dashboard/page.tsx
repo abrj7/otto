@@ -1,24 +1,60 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MicButton } from '@/components/voice/MicButton'
 import { VoiceStatus } from '@/components/voice/VoiceStatus'
-import { Send, RefreshCw, Mail, Calendar, Github, CheckCircle2, Clock, ArrowRight } from 'lucide-react'
+import { Send, RefreshCw, Mail, Calendar, Github, ArrowRight, Loader2, AlertCircle, ExternalLink } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
+import Link from 'next/link'
 
-// Custom SVG icons for brands
-const SlackIcon = () => (
-    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
-        <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z" />
-    </svg>
-)
+interface Insight {
+    id: string
+    type: string
+    title: string
+    subtitle: string
+    source: string
+}
+
+interface BriefingData {
+    connectedServices: string[]
+    summary: string
+    insights: Insight[]
+}
 
 export default function DashboardPage() {
     const [query, setQuery] = useState('')
     const [isLoading, setIsLoading] = useState(false)
     const [voiceStatus, setVoiceStatus] = useState<'idle' | 'listening' | 'processing' | 'speaking'>('idle')
+    const [briefing, setBriefing] = useState<BriefingData | null>(null)
+    const [isLoadingBriefing, setIsLoadingBriefing] = useState(true)
+    const [error, setError] = useState<string | null>(null)
+
+    const fetchBriefing = async () => {
+        setIsLoadingBriefing(true)
+        setError(null)
+        try {
+            const response = await fetch('/api/briefing')
+            if (!response.ok) {
+                if (response.status === 401) {
+                    setError('Please log in to see your briefing.')
+                    return
+                }
+                throw new Error('Failed to fetch briefing')
+            }
+            const data = await response.json()
+            setBriefing(data)
+        } catch (err: any) {
+            setError(err.message)
+        } finally {
+            setIsLoadingBriefing(false)
+        }
+    }
+
+    useEffect(() => {
+        fetchBriefing()
+    }, [])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -36,138 +72,163 @@ export default function DashboardPage() {
         day: 'numeric'
     })
 
+    const getIconForType = (type: string) => {
+        switch (type) {
+            case 'calendar':
+                return <Calendar className="w-4 h-4" />
+            case 'github':
+                return <Github className="w-4 h-4" />
+            case 'email':
+                return <Mail className="w-4 h-4" />
+            default:
+                return <ArrowRight className="w-4 h-4" />
+        }
+    }
+
     return (
         <DashboardLayout>
-            <div className="space-y-6">
+            <div className="space-y-8">
                 {/* Header */}
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-foreground"></div>
-                        <h1 className="text-xl font-semibold text-foreground">{currentDate}</h1>
+                    <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-foreground animate-pulse"></div>
+                        <h1 className="text-2xl font-semibold text-foreground tracking-tight">{currentDate}</h1>
                     </div>
                     <div className="flex items-center gap-4">
                         <VoiceStatus status={voiceStatus} />
-                        <RefreshCw className="w-4 h-4 text-[#6b6b6b] cursor-pointer hover:text-white" />
+                        <button
+                            onClick={fetchBriefing}
+                            disabled={isLoadingBriefing}
+                            className="p-2 rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
+                        >
+                            <RefreshCw className={`w-4 h-4 text-muted-foreground ${isLoadingBriefing ? 'animate-spin' : ''}`} />
+                        </button>
                     </div>
                 </div>
 
-                {/* Summary */}
-                <p className="text-muted-foreground text-sm leading-relaxed max-w-2xl">
-                    Good morning! You have <span className="text-foreground font-medium underline underline-offset-4 decoration-border">2 emails</span> from Minimalcompany Gmail that need your review,
-                    including a pressing matter regarding carrier issues piling up at The Minimal.
-                    Additionally, there&apos;s a <span className="text-foreground font-medium underline underline-offset-4 decoration-border">direct message</span> waiting for your response on Slack.
-                </p>
-
-                {/* Insights */}
-                <div className="space-y-3">
-                    {/* Email Insight */}
-                    <InsightItem
-                        icon={<Mail className="w-4 h-4" />}
-                        title="Re: Andre - carrier issues piling up at The Minimal"
-                        subtitle="Follow up on Q4 shipping issues for process improvement"
-                        type="email"
-                    />
-
-                    {/* Slack DM Insight - Expanded */}
-                    <div className="bg-card rounded-lg p-5 space-y-4 border border-border shadow-sm">
-                        <div className="flex items-start gap-4">
-                            <div className="w-8 h-8 rounded bg-accent flex items-center justify-center text-accent-foreground">
-                                <SlackIcon />
-                            </div>
-                            <div className="flex-1">
-                                <h3 className="text-foreground font-semibold">DM from Alex</h3>
-                                <p className="text-muted-foreground text-sm">Get attention approved by Apple today for shipping.</p>
-                            </div>
-                        </div>
-                        <p className="text-[#9b9b9b] text-sm pl-9">
-                            You need to obtain approval from Apple for the attention so that shipping can proceed. This
-                            task is time-sensitive and needs to be completed today.
+                {/* Loading State */}
+                {isLoadingBriefing && (
+                    <div className="flex flex-col items-center justify-center py-20">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-4" />
+                        <p className="text-sm text-muted-foreground font-medium uppercase tracking-widest">
+                            Loading your briefing...
                         </p>
-                        <div className="flex items-center gap-2 pl-9">
-                            <Clock className="w-4 h-4 text-[#6b6b6b]" />
-                            <span className="text-[#8a8a8a] text-sm">Get attention approved by Apple</span>
-                        </div>
-                        <div className="flex items-center justify-between pl-9 pt-2">
-                            <div className="flex items-center gap-4">
-                                <button className="text-green-500 text-sm font-medium hover:text-green-400">Done</button>
-                                <button className="text-[#6b6b6b] text-sm hover:text-white">Ignore</button>
-                            </div>
-                            <button className="flex items-center gap-1 text-[#6b6b6b] text-sm hover:text-white">
-                                View in Slack <ArrowRight className="w-3 h-3" />
-                            </button>
-                        </div>
-                        <div className="pl-9 pt-2">
-                            <input
-                                type="text"
-                                placeholder="Add a note or reminder..."
-                                className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white placeholder:text-[#4b4b4b] focus:outline-none focus:border-white/20"
-                            />
-                        </div>
                     </div>
+                )}
 
-                    {/* Calendar Insight */}
-                    <InsightItem
-                        icon={<Calendar className="w-4 h-4" />}
-                        title="TikTok <> The Minimal?"
-                        subtitle="Inquire about current TikTok campaigns for potential partnership"
-                        type="calendar"
-                    />
+                {/* Error State */}
+                {error && !isLoadingBriefing && (
+                    <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-6 text-center">
+                        <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-4" />
+                        <p className="text-foreground font-medium mb-2">{error}</p>
+                        <Link href="/">
+                            <Button variant="outline" className="mt-4">
+                                Go to Login
+                            </Button>
+                        </Link>
+                    </div>
+                )}
 
-                    {/* GitHub Insight */}
-                    <InsightItem
-                        icon={<Github className="w-4 h-4" />}
-                        title="PR #142: Feature/voice-integration merged"
-                        subtitle="3 new commits pushed to main branch"
-                        type="github"
-                    />
-                </div>
+                {/* Main Content */}
+                {briefing && !isLoadingBriefing && (
+                    <>
+                        {/* Summary */}
+                        <div className="bg-card border border-border rounded-xl p-6">
+                            <p className="text-foreground leading-relaxed">
+                                {briefing.summary}
+                            </p>
+
+                            {/* Connected Services Badge */}
+                            {briefing.connectedServices.length > 0 && (
+                                <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border">
+                                    <span className="text-xs text-muted-foreground uppercase tracking-widest">Connected:</span>
+                                    <div className="flex gap-2">
+                                        {briefing.connectedServices.map(service => (
+                                            <span
+                                                key={service}
+                                                className="text-xs bg-accent px-2 py-1 rounded-md text-foreground capitalize"
+                                            >
+                                                {service}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* No Connections Prompt */}
+                        {briefing.connectedServices.length === 0 && (
+                            <div className="bg-accent/20 border-2 border-dashed border-border rounded-xl p-8 text-center">
+                                <AlertCircle className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
+                                <h3 className="text-lg font-semibold text-foreground mb-2">No services connected</h3>
+                                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                                    Connect your GitHub, Google Calendar, and other services to see real updates here.
+                                </p>
+                                <Link href="/onboarding">
+                                    <Button className="bg-primary text-primary-foreground">
+                                        Connect Services
+                                        <ExternalLink className="ml-2 h-4 w-4" />
+                                    </Button>
+                                </Link>
+                            </div>
+                        )}
+
+                        {/* Insights */}
+                        {briefing.insights.length > 0 && (
+                            <div className="space-y-3">
+                                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest">
+                                    Recent Activity
+                                </h2>
+                                <div className="space-y-2">
+                                    {briefing.insights.map((insight) => (
+                                        <div
+                                            key={insight.id}
+                                            className="flex items-start gap-4 p-4 bg-card border border-border rounded-xl hover:bg-accent/30 transition-all cursor-pointer group"
+                                        >
+                                            <div className="w-8 h-8 rounded-lg bg-accent/50 flex items-center justify-center text-foreground">
+                                                {getIconForType(insight.type)}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="text-foreground text-sm font-semibold group-hover:underline underline-offset-4 decoration-border truncate">
+                                                    {insight.title}
+                                                </h3>
+                                                <p className="text-muted-foreground text-sm truncate">
+                                                    {insight.subtitle} • {insight.source}
+                                                </p>
+                                            </div>
+                                            <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </>
+                )}
 
                 {/* Query Input */}
-                <div className="pt-4">
+                <div className="pt-4 border-t border-border">
                     <form onSubmit={handleSubmit} className="flex gap-3 items-center">
                         <MicButton
-                            className="flex-shrink-0 w-10 h-10"
+                            className="flex-shrink-0 w-12 h-12"
                             onTranscript={(text) => setQuery(text)}
                         />
                         <Input
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             placeholder="Ask Otto anything..."
-                            className="flex-1 bg-card border-border text-foreground placeholder:text-muted-foreground h-11"
+                            className="flex-1 bg-card border-border text-foreground placeholder:text-muted-foreground h-12"
                             disabled={isLoading}
                         />
                         <Button
                             type="submit"
                             disabled={isLoading || !query.trim()}
-                            className="bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-6 font-medium"
+                            className="bg-primary text-primary-foreground hover:bg-primary/90 h-12 px-6 font-medium"
                         >
-                            Send
+                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                         </Button>
                     </form>
                 </div>
             </div>
         </DashboardLayout>
-    )
-}
-
-function InsightItem({ icon, title, subtitle, type }: { icon: React.ReactNode; title: string; subtitle: string; type: string }) {
-    const bgColors: Record<string, string> = {
-        email: 'bg-accent/40',
-        calendar: 'bg-accent/40',
-        github: 'bg-accent/40',
-        slack: 'bg-accent/40'
-    }
-
-    return (
-        <div className="flex items-start gap-4 py-4 px-4 hover:bg-accent/30 rounded-xl cursor-pointer transition-all duration-200 border border-border bg-card shadow-sm group">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-foreground ${bgColors[type] || 'bg-accent'}`}>
-                {icon}
-            </div>
-            <div className="flex-1 min-w-0">
-                <h3 className="text-foreground text-sm font-semibold group-hover:underline underline-offset-4 decoration-border truncate">{title}</h3>
-                <p className="text-muted-foreground text-sm truncate">{subtitle}</p>
-            </div>
-            <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
-        </div>
     )
 }
