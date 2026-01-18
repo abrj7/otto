@@ -129,8 +129,8 @@ function AgentView({ onDisconnect }: { onDisconnect: () => void }) {
             {/* Listening Hint */}
             <p className="text-xs text-muted-foreground font-medium uppercase tracking-[0.2em] text-center max-w-[200px] leading-loose">
                 {state === "listening" ? "Go ahead, I'm listening..." :
-                    state === "speaking" ? "Otto is speaking..." :
-                        "Otto is thinking..."}
+                    state === "speaking" ? "otto is speaking..." :
+                        "otto is thinking..."}
             </p>
         </div>
     );
@@ -183,7 +183,7 @@ function DisconnectedView({
                 ) : isConnecting ? (
                     "Connecting..."
                 ) : (
-                    "Click to start talking to Otto"
+                    "Click to start talking to otto"
                 )}
             </p>
         </div>

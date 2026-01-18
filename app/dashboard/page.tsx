@@ -44,17 +44,17 @@ export default function DashboardPage() {
     if (error === 'Unauthorized') {
         return (
             <DashboardLayout>
-                <div className="flex flex-col items-center justify-center min-h-[60vh]">
-                    <div className="max-w-md w-full p-8 rounded-2xl bg-card border shadow-sm text-center space-y-6">
+                <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in-up">
+                    <div className="max-w-md w-full p-8 rounded-2xl bg-card border shadow-xl text-center space-y-6">
                         <div className="h-16 w-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto">
                             <ShieldCheck className="h-8 w-8" />
                         </div>
                         <div className="space-y-2">
-                            <h1 className="text-2xl font-serif font-medium">Daily Briefing</h1>
-                            <p className="text-muted-foreground">Sign in to Otto to access your personalized morning summary.</p>
+                            <h1 className="text-2xl font-[family-name:var(--font-serif)] font-medium">Daily Briefing</h1>
+                            <p className="text-muted-foreground">Sign in to otto to access your personalized morning summary.</p>
                         </div>
-                        <Link href="/login" className="block">
-                            <Button className="w-full">Sign In</Button>
+                        <Link href="/" className="block">
+                            <Button className="w-full rounded-full hover:scale-[1.02] active:scale-[0.98] transition-transform">Sign In</Button>
                         </Link>
                     </div>
                 </div>
@@ -93,20 +93,20 @@ export default function DashboardPage() {
     // --- MAIN EDITORIAL LAYOUT ---
     return (
         <DashboardLayout>
-            <div className="max-w-3xl mx-auto md:py-8 font-sans selection:bg-primary/20">
+            <div className="max-w-3xl mx-auto md:py-8 font-sans selection:bg-primary/20 animate-fade-in-up">
 
                 {/* 1. Header: The Masthead */}
                 <header className="mb-16 text-center space-y-6">
                     <div className="inline-flex items-center justify-center gap-2 text-xs font-medium tracking-widest uppercase text-muted-foreground mb-4">
                         <span className="flex items-center gap-1.5 text-primary">
                             <Sparkles className="w-3 h-3" />
-                            Otto Intelligence
+                            otto Intelligence
                         </span>
                         <span className="text-border">|</span>
                         <span>{new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</span>
                     </div>
 
-                    <h1 className="text-4xl md:text-5xl font-serif font-medium tracking-tight text-foreground">
+                    <h1 className="text-4xl md:text-5xl font-[family-name:var(--font-serif)] font-medium tracking-tight text-foreground">
                         {briefing?.greeting || "Good Morning"}
                     </h1>
 
@@ -141,7 +141,7 @@ export default function DashboardPage() {
                         </article>
                     ) : (
                         // Fallback if no narrative generated yet (old schema)
-                        <div className="text-center py-10 text-muted-foreground italic">
+                        <div className="text-center py-10 text-muted-foreground italic font-[family-name:var(--font-serif)]">
                             Wait for the next generation to see your personalized story.
                         </div>
                     )}
@@ -273,7 +273,7 @@ function StatItem({ label, value, unit, icon }: any) {
                 {icon} {label}
             </span>
             <div className="flex items-baseline gap-1 justify-center md:justify-start">
-                <span className="text-2xl font-serif font-medium text-foreground">
+                <span className="text-2xl font-[family-name:var(--font-serif)] font-medium text-foreground">
                     {value ?? 0}
                 </span>
                 <span className="text-xs text-muted-foreground">{unit}</span>

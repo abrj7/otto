@@ -54,10 +54,10 @@ export function UserMenu() {
                 onClick={() => setIsOpen(!isOpen)}
                 className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#2b2b2b] transition-colors"
             >
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-500 to-orange-500 flex items-center justify-center text-white text-sm font-medium">
+                <div className="w-8 h-8 rounded-full bg-foreground flex items-center justify-center text-background text-sm font-medium">
                     {user.name.charAt(0).toUpperCase()}
                 </div>
-                <span className="text-white text-sm font-medium max-w-[120px] truncate">
+                <span className="text-foreground text-sm font-medium max-w-[120px] truncate">
                     {user.name}
                 </span>
                 <ChevronDown className={`w-4 h-4 text-[#8a8a8a] transition-transform ${isOpen ? 'rotate-180' : ''}`} />

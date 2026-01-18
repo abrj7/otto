@@ -61,7 +61,7 @@ export default function DashboardPage() {
                     <div className="w-6 h-6 rounded bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold">
                         O
                     </div>
-                    <span className="text-white text-sm font-medium flex-1">Otto Workspace</span>
+                    <span className="text-white text-sm font-[family-name:var(--font-brand)] font-medium flex-1">otto Workspace</span>
                     <ChevronLeft className="w-4 h-4 text-[#6b6b6b]" />
                 </div>
 
@@ -136,7 +136,7 @@ export default function DashboardPage() {
                                         <Input
                                             value={query}
                                             onChange={(e) => setQuery(e.target.value)}
-                                            placeholder="Ask Otto anything... e.g., &quot;What changed since yesterday?&quot;"
+                                            placeholder="Ask otto anything... e.g., &quot;What changed since yesterday?&quot;"
                                             className="flex-1 bg-[#2b2b2b] border-[#3d3d3d] text-white placeholder:text-[#6b6b6b]"
                                             disabled={isLoading}
                                         />
@@ -171,7 +171,7 @@ export default function DashboardPage() {
                                         <span>📋</span> Getting Started
                                     </CardTitle>
                                     <CardDescription className="text-[#8a8a8a]">
-                                        Connect your accounts and ask Otto about your workflow
+                                        Connect your accounts and ask otto about your workflow
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent>

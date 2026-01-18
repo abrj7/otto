@@ -1,20 +1,22 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { UserMenu } from '@/components/auth/UserMenu'
 import { cn } from '@/lib/utils'
-import { Check, Plus, Users, Calendar, RefreshCw, Trash2, Unplug, Info, Moon, Sun } from 'lucide-react'
+import { Check, Plus, Users, Calendar, RefreshCw, Trash2, Unplug, Info, Moon, Sun, AlertTriangle, X } from 'lucide-react'
 
 interface Integration {
     type: string
     name: string
+    description: string
     icon: React.ReactNode
     iconBg: string
     connected: boolean
     provider?: string // OAuth provider name
     comingSoon?: boolean
+    animationClass?: string
 }
 
 // Custom SVG icons for brands
@@ -57,56 +59,120 @@ const ZoomIcon = () => (
     </svg>
 )
 
+// Confirmation Modal Component
+function ConfirmModal({
+    isOpen,
+    onClose,
+    onConfirm,
+    serviceName
+}: {
+    isOpen: boolean
+    onClose: () => void
+    onConfirm: () => void
+    serviceName: string
+}) {
+    if (!isOpen) return null
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0">
+                        <AlertTriangle className="w-5 h-5 text-red-500" />
+                    </div>
+                    <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-foreground mb-2">Disconnect {serviceName}?</h3>
+                        <p className="text-muted-foreground text-sm mb-6">
+                            Otto will no longer be able to access your {serviceName} data. You can reconnect anytime.
+                        </p>
+                        <div className="flex gap-3">
+                            <Button
+                                onClick={onClose}
+                                variant="outline"
+                                className="flex-1 rounded-lg"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={onConfirm}
+                                className="flex-1 bg-red-500 hover:bg-red-600 text-white rounded-lg"
+                            >
+                                Disconnect
+                            </Button>
+                        </div>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 export default function OnboardingPage() {
     const router = useRouter()
     const [toast, setToast] = useState<string | null>(null)
-    const [theme, setTheme] = useState<'light' | 'dark'>('dark')
+    const [theme, setTheme] = useState<'light' | 'dark'>('light')
+    const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; integration: Integration | null }>({
+        isOpen: false,
+        integration: null
+    })
     const [integrations, setIntegrations] = useState<Integration[]>([
         {
             type: 'github',
             name: 'GitHub',
+            description: 'Access your repos, PRs, and issues to help with code reviews and project updates.',
             icon: <GithubIcon />,
-            iconBg: 'bg-accent/40',
+            iconBg: 'bg-accent',
             connected: false,
             provider: 'github',
         },
         {
             type: 'google',
-            name: 'Gmail & Calendar',
+            name: 'Google Workspace',
+            description: 'Read your emails and calendar events for daily briefings and scheduling.',
             icon: <GoogleIcon />,
-            iconBg: 'bg-accent/40',
+            iconBg: 'bg-accent',
             connected: false,
             provider: 'google',
         },
         {
             type: 'notion',
             name: 'Notion',
+            description: 'Access your Notion workspace for notes, docs, and project management.',
             icon: <NotionIcon />,
-            iconBg: 'bg-accent/40',
+            iconBg: 'bg-accent',
             connected: false,
             provider: 'notion',
         },
         {
             type: 'linkedin',
             name: 'LinkedIn',
+            description: 'Monitor your LinkedIn activity, messages, and professional network.',
             icon: <LinkedInIcon />,
-            iconBg: 'bg-accent/40',
+            iconBg: 'bg-accent',
             connected: false,
             provider: 'linkedin',
         },
         {
             type: 'zoom',
             name: 'Zoom',
+            description: 'Access meeting schedules and upcoming calls for better planning.',
             icon: <ZoomIcon />,
-            iconBg: 'bg-accent/40',
+            iconBg: 'bg-accent',
             connected: false,
             provider: 'zoom',
         },
         {
             type: 'slack',
             name: 'Slack',
+            description: 'Monitor Slack channels and messages for important team updates.',
             icon: <SlackIcon />,
-            iconBg: 'bg-accent/40',
+            iconBg: 'bg-accent',
             connected: false,
             provider: 'slack',
             comingSoon: true,
@@ -119,7 +185,8 @@ export default function OnboardingPage() {
             setTheme(savedTheme)
             document.documentElement.classList.toggle('dark', savedTheme === 'dark')
         } else {
-            document.documentElement.classList.add('dark')
+            // Default to light theme to match new design
+            document.documentElement.classList.remove('dark')
         }
     }, [])
 
@@ -138,12 +205,18 @@ export default function OnboardingPage() {
 
         if (connected) {
             setIntegrations(prev =>
-                prev.map(i => (i.provider === connected ? { ...i, connected: true } : i))
+                prev.map(i => (i.provider === connected ? { ...i, connected: true, animationClass: 'animate-status-connect' } : i))
             )
             setToast(`${connected.charAt(0).toUpperCase() + connected.slice(1)} connected successfully!`)
             setTimeout(() => setToast(null), 3000)
             // Clean up URL
             window.history.replaceState({}, '', '/onboarding')
+            // Remove animation class after animation completes
+            setTimeout(() => {
+                setIntegrations(prev =>
+                    prev.map(i => (i.provider === connected ? { ...i, animationClass: undefined } : i))
+                )
+            }, 600)
         }
 
         if (error) {
@@ -185,8 +258,16 @@ export default function OnboardingPage() {
         window.location.href = `/api/auth/${integration.provider}`
     }
 
-    const handleDisconnect = async (integration: Integration) => {
+    const openDisconnectModal = (integration: Integration) => {
         if (!integration.connected || integration.comingSoon) return
+        setConfirmModal({ isOpen: true, integration })
+    }
+
+    const handleDisconnect = async () => {
+        const integration = confirmModal.integration
+        if (!integration) return
+
+        setConfirmModal({ isOpen: false, integration: null })
 
         try {
             const res = await fetch(`/api/auth/disconnect?provider=${integration.provider}`, {
@@ -194,9 +275,18 @@ export default function OnboardingPage() {
             })
 
             if (res.ok) {
+                // Add disconnect animation first
                 setIntegrations(prev =>
-                    prev.map(i => (i.provider === integration.provider ? { ...i, connected: false } : i))
+                    prev.map(i => (i.provider === integration.provider ? { ...i, animationClass: 'animate-status-disconnect' } : i))
                 )
+
+                // Then update connected status after brief delay
+                setTimeout(() => {
+                    setIntegrations(prev =>
+                        prev.map(i => (i.provider === integration.provider ? { ...i, connected: false, animationClass: undefined } : i))
+                    )
+                }, 400)
+
                 setToast(`${integration.name} disconnected successfully!`)
                 setTimeout(() => setToast(null), 3000)
             } else {
@@ -215,11 +305,19 @@ export default function OnboardingPage() {
 
     return (
         <div className="min-h-screen bg-background text-foreground transition-colors duration-200">
+            {/* Confirmation Modal */}
+            <ConfirmModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal({ isOpen: false, integration: null })}
+                onConfirm={handleDisconnect}
+                serviceName={confirmModal.integration?.name || ''}
+            />
+
             {/* User Menu - Fixed Top Right */}
             <div className="fixed top-4 right-4 z-50 flex items-center gap-3">
                 <button
                     onClick={toggleTheme}
-                    className="p-2.5 rounded-full bg-card border border-border hover:bg-accent transition-colors shadow-sm"
+                    className="p-2.5 rounded-full bg-card border border-border hover:bg-accent transition-all hover:scale-105"
                     title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
                 >
                     {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
@@ -238,9 +336,9 @@ export default function OnboardingPage() {
             <div className="max-w-6xl mx-auto flex flex-col md:flex-row min-h-screen">
                 {/* Left Panel - Integrations */}
                 <div className="flex-1 p-8 md:p-12 lg:p-16 border-r border-border">
-                    <div className="max-w-xl">
-                        <h1 className="text-3xl font-semibold tracking-tight mb-2">Connect your tools</h1>
-                        <p className="text-muted-foreground mb-12">Select the services Otto should monitor for you.</p>
+                    <div className="max-w-xl animate-fade-in-up">
+                        <h1 className="text-3xl font-[family-name:var(--font-serif)] font-medium tracking-tight mb-2">Connect your tools</h1>
+                        <p className="text-muted-foreground mb-12">Select the services otto should monitor for you.</p>
 
                         {/* Integration Grid */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
@@ -248,50 +346,52 @@ export default function OnboardingPage() {
                                 <div
                                     key={integration.type}
                                     className={cn(
-                                        "relative flex flex-col items-center p-8 rounded-2xl bg-card border transition-all duration-300 text-center group",
+                                        "tooltip-container relative flex flex-col items-center p-6 rounded-2xl bg-card border transition-all duration-300 text-center group min-h-[220px]",
+                                        "hover:shadow-lg hover:-translate-y-1 hover:border-muted-foreground/40",
                                         integration.connected
-                                            ? "border-foreground/20 ring-1 ring-foreground/10 shadow-lg shadow-black/20"
-                                            : "border-border hover:border-muted-foreground/30 hover:bg-accent/40 shadow-sm",
-                                        integration.comingSoon && "opacity-60"
+                                            ? "border-foreground/20 ring-1 ring-foreground/10 shadow-md"
+                                            : "border-border",
+                                        integration.comingSoon && "opacity-60 hover:opacity-70",
+                                        integration.animationClass
                                     )}
                                 >
+                                    {/* Tooltip */}
+                                    <div className="tooltip">{integration.description}</div>
+
                                     {integration.comingSoon && (
                                         <div className="absolute top-2 right-2 text-[10px] text-muted-foreground bg-accent px-1.5 py-0.5 rounded">
                                             Soon
                                         </div>
                                     )}
-                                    <div className={`
-                                        w-12 h-12 rounded-lg flex items-center justify-center mb-4
-                                        ${integration.iconBg} text-foreground
-                                    `}>
+                                    <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-3 bg-accent text-foreground group-hover:scale-110 transition-transform duration-300">
                                         {integration.icon}
                                     </div>
-                                    <span className="text-foreground text-sm font-medium">
+                                    <span className="text-foreground text-sm font-medium h-10 flex items-center">
                                         {integration.name}
                                     </span>
-                                    <div className="mt-auto w-full pt-4 flex flex-col items-center gap-3">
+                                    <div className="mt-auto w-full pt-3 flex flex-col items-center gap-2">
                                         {integration.connected ? (
                                             <>
-                                                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-[10px] font-bold uppercase tracking-wider border border-green-500/20">
+                                                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-500/10 text-green-500 text-[10px] font-bold uppercase tracking-wider border border-green-500/20">
                                                     <Check className="w-3 h-3" /> Connected
                                                 </div>
-                                                <div className="flex flex-col gap-2 w-full">
+                                                <div className="flex items-center justify-center gap-3 w-full">
                                                     <button
                                                         onClick={() => handleConnect(integration)}
-                                                        className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-accent/40 hover:bg-accent text-[11px] font-bold transition-all border border-border/50 hover:border-border group"
+                                                        title="Reconnect"
+                                                        className="relative p-2.5 rounded-full bg-accent hover:bg-accent/80 transition-all border border-border/50 hover:border-border group hover:scale-110"
                                                     >
-                                                        <RefreshCw className="w-3 h-3 text-muted-foreground group-hover:rotate-180 transition-transform duration-500" />
-                                                        Reconnect
+                                                        <RefreshCw className="w-4 h-4 text-muted-foreground group-hover:text-foreground group-hover:rotate-180 transition-all duration-500" />
                                                     </button>
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation()
-                                                            handleDisconnect(integration)
+                                                            openDisconnectModal(integration)
                                                         }}
-                                                        className="w-full flex items-center justify-center gap-2 py-1.5 rounded-lg text-red-500/60 hover:text-red-500 hover:bg-red-500/5 transition-all text-[10px] font-medium"
+                                                        title="Disconnect"
+                                                        className="relative p-2.5 rounded-full hover:bg-red-500/10 transition-all border border-transparent hover:border-red-500/20 group hover:scale-110"
                                                     >
-                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                        Disconnect
+                                                        <Trash2 className="w-4 h-4 text-muted-foreground group-hover:text-red-500 transition-colors" />
                                                     </button>
                                                 </div>
                                             </>
@@ -300,10 +400,10 @@ export default function OnboardingPage() {
                                                 onClick={() => handleConnect(integration)}
                                                 disabled={integration.comingSoon}
                                                 className={cn(
-                                                    "w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all",
+                                                    "w-full flex items-center justify-center gap-2 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98]",
                                                     integration.comingSoon
                                                         ? "bg-accent/20 text-muted-foreground cursor-not-allowed"
-                                                        : "bg-foreground text-background hover:opacity-90 active:scale-[0.98]"
+                                                        : "bg-foreground text-background hover:opacity-90"
                                                 )}
                                             >
                                                 {integration.comingSoon ? (
@@ -320,18 +420,18 @@ export default function OnboardingPage() {
                             ))}
                         </div>
 
-                        <div className="flex items-center gap-3 text-muted-foreground text-sm bg-accent/30 p-4 rounded-lg">
+                        <div className="flex items-center gap-3 text-muted-foreground text-sm bg-accent/50 p-4 rounded-lg">
                             <Users className="w-4 h-4" />
-                            <span>Otto never stores your passwords. Connection is handled via secure OAuth.</span>
+                            <span>otto never stores your passwords. Connection is handled via secure OAuth.</span>
                         </div>
                     </div>
                 </div>
 
                 {/* Right Panel - Progress */}
-                <div className="w-full md:w-80 p-8 md:p-12 bg-accent/10 flex flex-col">
-                    <div className="flex-1">
-                        <h2 className="text-lg font-semibold mb-1">Your Setup</h2>
-                        <p className="text-muted-foreground text-sm mb-12">{connectedCount} services connected</p>
+                <div className="w-full md:w-80 p-8 md:p-12 bg-background flex flex-col animate-fade-in-up animation-delay-200">
+                    <div className="flex-1 flex flex-col justify-start pt-4">
+                        <h2 className="text-lg font-[family-name:var(--font-serif)] font-medium mb-1">Your Setup</h2>
+                        <p className="text-muted-foreground text-sm mb-8">{connectedCount} services connected</p>
 
                         <div className="space-y-4">
                             {connectedCount === 0 ? (
@@ -364,14 +464,14 @@ export default function OnboardingPage() {
                         <Button
                             onClick={() => router.push('/dashboard')}
                             disabled={connectedCount === 0}
-                            className="w-full h-12 bg-foreground text-background hover:bg-foreground/90 rounded-lg font-medium transition-all"
+                            className="w-full h-12 bg-foreground text-background hover:bg-foreground/90 rounded-full font-medium transition-all hover:scale-[1.02] active:scale-[0.98]"
                         >
                             Continue to Dashboard
                         </Button>
                         <Button
                             onClick={() => router.push('/dashboard')}
                             variant="ghost"
-                            className="w-full h-12 text-muted-foreground hover:text-foreground rounded-lg font-medium"
+                            className="w-full h-12 text-muted-foreground hover:text-foreground rounded-full font-medium"
                         >
                             Skip for now →
                         </Button>

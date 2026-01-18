@@ -69,7 +69,7 @@ export default function CalendarPage() {
                                 <h3 className="text-lg font-medium text-foreground mb-2">Connection Required</h3>
                                 <p className="text-muted-foreground text-sm mb-6 max-w-sm">
                                     {error.includes('No Google token found')
-                                        ? "Otto needs access to your Google Calendar to pull your real events."
+                                        ? "otto needs access to your Google Calendar to pull your real events."
                                         : error}
                                 </p>
                                 <Link href="/onboarding">
