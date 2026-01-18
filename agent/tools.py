@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from livekit.agents import function_tool, RunContext
 from duckduckgo_search import DDGS
-from compression import compress_text
+from ttc_compression import compress_text
 
 # Configure logging for console output
 logging.basicConfig(
