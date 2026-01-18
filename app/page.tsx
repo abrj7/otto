@@ -1,8 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { createClient } from '@/lib/supabase/client'
+import { Mail, ArrowLeft } from 'lucide-react'
 
 // Pre-calculated wave paths to avoid hydration mismatch
 const tealWavePaths = [
@@ -51,15 +54,210 @@ const orangeWavePaths = [
     "M1370 0 Q1385 360 1370 1000",
 ]
 
-export default function LoginPage() {
-    const router = useRouter()
+// Password validation function
+function validatePassword(password: string): { valid: boolean; errors: string[] } {
+    const errors: string[] = []
 
-    const handleAuth = () => {
-        router.push('/onboarding')
+    if (password.length < 8) {
+        errors.push('At least 8 characters')
+    }
+    if (!/[a-z]/.test(password)) {
+        errors.push('One lowercase letter')
+    }
+    if (!/[A-Z]/.test(password)) {
+        errors.push('One uppercase letter')
+    }
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+        errors.push('One special character (!@#$%^&*)')
     }
 
-    const handleDashboard = () => {
-        router.push('/dashboard')
+    return { valid: errors.length === 0, errors }
+}
+
+// Check Your Email Screen Component
+function CheckEmailScreen({ email, onBack }: { email: string; onBack: () => void }) {
+    return (
+        <div className="space-y-6 backdrop-blur-md bg-white/5 p-8 rounded-2xl border border-white/10 text-center">
+            {/* Email Icon */}
+            <div className="flex justify-center">
+                <div className="w-20 h-20 rounded-full bg-green-500 flex items-center justify-center">
+                    <Mail className="w-10 h-10 text-white" />
+                </div>
+            </div>
+
+            {/* Title */}
+            <h2 className="text-2xl font-bold text-white">Check Your Email!</h2>
+
+            {/* Subtitle */}
+            <p className="text-[#9b9b9b]">
+                We&apos;ve sent a confirmation link to:
+            </p>
+
+            {/* Email Display */}
+            <div className="bg-[#2b2b2b] border border-[#3d3d3d] rounded-lg py-3 px-6">
+                <span className="text-white font-medium">{email}</span>
+            </div>
+
+            {/* Next Steps */}
+            <div className="bg-[#1a1a1a] border border-[#2d2d2d] rounded-lg p-4 text-left">
+                <h3 className="text-white font-semibold mb-3">Next steps:</h3>
+                <ol className="text-[#9b9b9b] space-y-2">
+                    <li>1. Open the email from Otto</li>
+                    <li>2. Click the confirmation link</li>
+                    <li>3. Come back and log in!</li>
+                </ol>
+            </div>
+
+            {/* Spam Notice */}
+            <p className="text-[#6b6b6b] text-sm">
+                Didn&apos;t receive it? Check your spam folder.
+            </p>
+
+            {/* Back Button */}
+            <Button
+                onClick={onBack}
+                variant="outline"
+                className="w-full h-11 bg-[#2b2b2b] border-[#3d3d3d] text-white hover:bg-[#3d3d3d] font-medium"
+            >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Login
+            </Button>
+        </div>
+    )
+}
+
+export default function LoginPage() {
+    const router = useRouter()
+    const supabase = createClient()
+    const [name, setName] = useState('')
+    const [email, setEmail] = useState('')
+    const [password, setPassword] = useState('')
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+    const [mode, setMode] = useState<'login' | 'signup'>('login')
+    const [passwordErrors, setPasswordErrors] = useState<string[]>([])
+    const [showEmailConfirmation, setShowEmailConfirmation] = useState(false)
+    const [confirmedEmail, setConfirmedEmail] = useState('')
+
+    const handleAuth = async () => {
+        if (!email || !password) {
+            setError('Please enter email and password')
+            return
+        }
+
+        if (mode === 'signup') {
+            if (!name.trim()) {
+                setError('Please enter your name')
+                return
+            }
+
+            // Validate password for signup
+            const validation = validatePassword(password)
+            if (!validation.valid) {
+                setPasswordErrors(validation.errors)
+                setError('Password does not meet requirements')
+                return
+            }
+        }
+
+        setLoading(true)
+        setError(null)
+        setPasswordErrors([])
+
+        try {
+            if (mode === 'signup') {
+                // Sign up with user metadata (name)
+                const { data, error } = await supabase.auth.signUp({
+                    email,
+                    password,
+                    options: {
+                        data: {
+                            full_name: name.trim(),
+                        },
+                        emailRedirectTo: `${window.location.origin}/onboarding`,
+                    }
+                })
+
+                if (error) throw error
+
+                // Check if email confirmation is required
+                if (data.user && !data.session) {
+                    // Email confirmation required - show the confirmation screen
+                    setConfirmedEmail(email)
+                    setShowEmailConfirmation(true)
+                } else if (data.session) {
+                    // No email confirmation required - go directly to onboarding
+                    router.push('/onboarding')
+                }
+            } else {
+                // Login
+                const { error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password,
+                })
+
+                if (error) {
+                    // Handle specific error messages
+                    if (error.message.includes('Invalid login credentials')) {
+                        throw new Error('Invalid email or password. Please try again.')
+                    }
+                    if (error.message.includes('Email not confirmed')) {
+                        throw new Error('Please confirm your email before logging in. Check your inbox.')
+                    }
+                    throw error
+                }
+
+                router.push('/onboarding')
+            }
+        } catch (err: any) {
+            setError(err.message || 'Authentication failed')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    // Live password validation for signup
+    const handlePasswordChange = (value: string) => {
+        setPassword(value)
+        if (mode === 'signup' && value) {
+            const validation = validatePassword(value)
+            setPasswordErrors(validation.errors)
+        } else {
+            setPasswordErrors([])
+        }
+    }
+
+    const resetToLogin = () => {
+        setShowEmailConfirmation(false)
+        setMode('login')
+        setPassword('')
+        setName('')
+        setError(null)
+    }
+
+    // Show email confirmation screen after successful signup
+    if (showEmailConfirmation) {
+        return (
+            <div className="min-h-screen relative overflow-hidden">
+                {/* Gradient Background */}
+                <div className="absolute inset-0 bg-[#0a0a0a]">
+                    <div className="absolute left-0 top-0 w-1/2 h-full opacity-60">
+                        <div className="absolute inset-0 bg-gradient-to-r from-teal-900/40 via-teal-800/20 to-transparent"></div>
+                    </div>
+                    <div className="absolute right-0 top-0 w-1/2 h-full opacity-70">
+                        <div className="absolute inset-0 bg-gradient-to-l from-orange-600/30 via-orange-700/20 to-transparent"></div>
+                    </div>
+                    <div className="absolute inset-0 backdrop-blur-[1px] bg-gradient-to-b from-transparent via-black/20 to-black/40"></div>
+                </div>
+
+                {/* Content */}
+                <div className="relative z-10 min-h-screen flex items-center justify-center">
+                    <div className="w-full max-w-md p-8">
+                        <CheckEmailScreen email={confirmedEmail} onBack={resetToLogin} />
+                    </div>
+                </div>
+            </div>
+        )
     }
 
     return (
@@ -89,7 +287,7 @@ export default function LoginPage() {
                         ))}
                     </svg>
                 </div>
-                
+
                 {/* Right orange gradient waves */}
                 <div className="absolute right-0 top-0 w-1/2 h-full opacity-70">
                     <div className="absolute inset-0 bg-gradient-to-l from-orange-600/30 via-orange-700/20 to-transparent"></div>
@@ -129,52 +327,75 @@ export default function LoginPage() {
 
                     {/* Login Form */}
                     <div className="space-y-6 backdrop-blur-md bg-white/5 p-8 rounded-2xl border border-white/10">
+                        {error && (
+                            <div className="p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-red-300 text-sm">
+                                {error}
+                            </div>
+                        )}
+
                         <div className="space-y-4">
+                            {/* Name field - only show for signup */}
+                            {mode === 'signup' && (
+                                <Input
+                                    type="text"
+                                    placeholder="Enter your full name"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    className="h-12 bg-[#2b2b2b]/80 border-[#3d3d3d] text-white placeholder:text-[#6b6b6b] focus:border-[#5c5c5c] focus:ring-0"
+                                />
+                            )}
                             <Input
                                 type="email"
                                 placeholder="Enter your email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
                                 className="h-12 bg-[#2b2b2b]/80 border-[#3d3d3d] text-white placeholder:text-[#6b6b6b] focus:border-[#5c5c5c] focus:ring-0"
                             />
-                            <Input
-                                type="password"
-                                placeholder="Enter your password"
-                                className="h-12 bg-[#2b2b2b]/80 border-[#3d3d3d] text-white placeholder:text-[#6b6b6b] focus:border-[#5c5c5c] focus:ring-0"
-                            />
+                            <div>
+                                <Input
+                                    type="password"
+                                    placeholder="Enter your password"
+                                    value={password}
+                                    onChange={(e) => handlePasswordChange(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleAuth()}
+                                    className="h-12 bg-[#2b2b2b]/80 border-[#3d3d3d] text-white placeholder:text-[#6b6b6b] focus:border-[#5c5c5c] focus:ring-0"
+                                />
+                                {/* Password requirements - show for signup */}
+                                {mode === 'signup' && password && passwordErrors.length > 0 && (
+                                    <div className="mt-2 text-xs text-[#8a8a8a]">
+                                        <span className="text-red-400">Missing: </span>
+                                        {passwordErrors.join(', ')}
+                                    </div>
+                                )}
+                                {mode === 'signup' && password && passwordErrors.length === 0 && (
+                                    <div className="mt-2 text-xs text-green-400">
+                                        ✓ Password meets all requirements
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         <div className="space-y-3">
                             <Button
                                 onClick={handleAuth}
-                                className="w-full h-11 bg-white text-[#191919] hover:bg-[#e0e0e0] font-medium"
+                                disabled={loading || (mode === 'signup' && passwordErrors.length > 0 && password.length > 0)}
+                                className="w-full h-11 bg-white text-[#191919] hover:bg-[#e0e0e0] font-medium disabled:opacity-50"
                             >
-                                Log in
+                                {loading ? 'Please wait...' : mode === 'login' ? 'Log in' : 'Sign up'}
                             </Button>
                             <Button
-                                onClick={handleAuth}
+                                onClick={() => {
+                                    setMode(mode === 'login' ? 'signup' : 'login')
+                                    setPasswordErrors([])
+                                    setError(null)
+                                }}
                                 variant="outline"
+                                disabled={loading}
                                 className="w-full h-11 bg-transparent border-[#3d3d3d] text-white hover:bg-[#2b2b2b] hover:text-white font-medium"
                             >
-                                Sign up
+                                {mode === 'login' ? 'Need an account? Sign up' : 'Have an account? Log in'}
                             </Button>
                         </div>
-
-                        <div className="relative">
-                            <div className="absolute inset-0 flex items-center">
-                                <div className="w-full border-t border-[#3d3d3d]"></div>
-                            </div>
-                            <div className="relative flex justify-center text-sm">
-                                <span className="px-4 bg-transparent text-[#6b6b6b]">or</span>
-                            </div>
-                        </div>
-
-                        {/* Skip to Dashboard Button */}
-                        <Button
-                            onClick={handleDashboard}
-                            variant="outline"
-                            className="w-full h-11 bg-gradient-to-r from-teal-600/20 to-orange-600/20 border-[#3d3d3d] text-white hover:from-teal-600/30 hover:to-orange-600/30 hover:text-white font-medium"
-                        >
-                            Skip to Dashboard →
-                        </Button>
                     </div>
 
                     {/* Footer */}

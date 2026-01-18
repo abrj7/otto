@@ -10,6 +10,7 @@ import { VoiceOrbs } from '@/components/voice/VoiceOrbs'
 import { SummaryBlock } from '@/components/blocks/SummaryBlock'
 import { ReceiptsBlock } from '@/components/blocks/ReceiptsBlock'
 import { TokenStatsBlock } from '@/components/blocks/TokenStatsBlock'
+import { UserMenu } from '@/components/auth/UserMenu'
 import type { QueryResponse } from '@/types'
 import { Send, RefreshCw, Settings, ChevronLeft, Search, Plus, FileText, Calendar, MessageSquare, Github } from 'lucide-react'
 
@@ -91,13 +92,14 @@ export default function DashboardPage() {
             {/* Main Content */}
             <main className="flex-1 flex flex-col">
                 {/* Header */}
-                <header className="h-12 border-b border-[#2d2d2d] flex items-center justify-between px-4">
+                <header className="h-14 border-b border-[#2d2d2d] flex items-center justify-between px-4">
                     <div className="flex items-center gap-2">
                         <FileText className="w-4 h-4 text-[#8a8a8a]" />
                         <span className="text-white text-sm">My Briefings</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-4">
                         <VoiceStatus status={voiceStatus} />
+                        <UserMenu />
                     </div>
                 </header>
 
@@ -135,8 +137,8 @@ export default function DashboardPage() {
                                             className="flex-1 bg-[#2b2b2b] border-[#3d3d3d] text-white placeholder:text-[#6b6b6b]"
                                             disabled={isLoading}
                                         />
-                                        <Button 
-                                            type="submit" 
+                                        <Button
+                                            type="submit"
                                             disabled={isLoading || !query.trim()}
                                             className="bg-white text-[#191919] hover:bg-[#e0e0e0]"
                                         >
@@ -173,8 +175,8 @@ export default function DashboardPage() {
                                     <p className="text-[#6b6b6b] mb-4">
                                         Try asking: &ldquo;What do I need to care about today?&rdquo;
                                     </p>
-                                    <Button 
-                                        variant="secondary" 
+                                    <Button
+                                        variant="secondary"
                                         size="sm"
                                         className="bg-[#3d3d3d] text-white hover:bg-[#4d4d4d]"
                                     >
@@ -193,15 +195,15 @@ export default function DashboardPage() {
                 <div className="flex-1 flex items-center justify-center">
                     <VoiceOrbs isSpeaking={isSpeaking} />
                 </div>
-                
+
                 {/* Demo Toggle Button */}
                 <div className="p-6 w-full">
                     <Button
                         onClick={toggleSpeaking}
-                        className={`w-full ${isSpeaking 
-                            ? 'bg-purple-600 hover:bg-purple-700' 
+                        className={`w-full ${isSpeaking
+                            ? 'bg-purple-600 hover:bg-purple-700'
                             : 'bg-[#3d3d3d] hover:bg-[#4d4d4d]'
-                        } text-white`}
+                            } text-white`}
                     >
                         {isSpeaking ? 'Stop Speaking' : 'Start Speaking'}
                     </Button>
@@ -218,8 +220,8 @@ function SidebarItem({ icon, label, active = false }: { icon: React.ReactNode; l
     return (
         <button className={`
             w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors
-            ${active 
-                ? 'bg-[#353535] text-white' 
+            ${active
+                ? 'bg-[#353535] text-white'
                 : 'text-[#8a8a8a] hover:bg-[#2b2b2b] hover:text-white'
             }
         `}>

@@ -6,11 +6,11 @@
 import type { Event, IntegrationType } from '@/types'
 import { getGitHubActivity } from '@/lib/integrations/github'
 import { getSlackMentions } from '@/lib/integrations/slack'
-import { getTeamsMessages } from '@/lib/integrations/teams'
-import { getNotionUpdates } from '@/lib/integrations/notion'
-import { getGmailEmails } from '@/lib/integrations/gmail'
+import { getNotionPages } from '@/lib/integrations/notion'
+import { getGmailMessages } from '@/lib/integrations/gmail'
 import { getCalendarEvents } from '@/lib/integrations/calendar'
-import { getLinearIssues } from '@/lib/integrations/linear'
+import { getLinkedInProfile } from '@/lib/integrations/linkedin'
+import { getZoomMeetings } from '@/lib/integrations/zoom'
 import type { Intent } from './intents'
 
 export interface AggregatedContext {
@@ -26,25 +26,33 @@ export async function aggregateContext(
     const allEvents: Event[] = []
     const sources: IntegrationType[] = []
 
+    // For now, using empty strings for OAuth tokens
+    // In production, these would come from the user's stored tokens in Supabase
+    const githubToken = process.env.GITHUB_TOKEN || ''
+    const googleToken = '' // Would come from user_integrations table
+    const notionToken = ''
+    const linkedInToken = ''
+    const zoomToken = ''
+
     // Fetch from all sources in parallel
     const results = await Promise.allSettled([
         getGitHubActivity(workspaceId, intent),
         getSlackMentions(workspaceId),
-        getTeamsMessages(workspaceId),
-        getNotionUpdates(workspaceId),
-        getGmailEmails(workspaceId),
-        getCalendarEvents(workspaceId),
-        getLinearIssues(workspaceId),
+        getNotionPages(notionToken, workspaceId),
+        getGmailMessages(googleToken, workspaceId),
+        getCalendarEvents(googleToken, workspaceId),
+        getLinkedInProfile(linkedInToken),
+        getZoomMeetings(zoomToken),
     ])
 
     const sourceTypes: IntegrationType[] = [
         'github',
         'slack',
-        'teams',
         'notion',
         'gmail',
         'calendar',
-        'linear',
+        'linkedin',
+        'zoom',
     ]
 
     results.forEach((result, index) => {
