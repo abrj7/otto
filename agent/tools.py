@@ -363,17 +363,22 @@ async def send_email(
     Send an email via Gmail.
     
     Args:
-        to: Recipient email address
+        to: Recipient name or email address (e.g., "abdullah" or "test@example.com")
         subject: Email subject line
         body: Email body content
     """
-    log_tool_call("send_email", to=to, subject=subject, body=body[:50]+"..." if len(body) > 50 else body)
+    from contacts import resolve_contact
+    
+    # Resolve name to email if needed
+    recipient_email = resolve_contact(to)
+    
+    log_tool_call("send_email", to=recipient_email, subject=subject, body=body[:50]+"..." if len(body) > 50 else body)
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{API_URL}/api/gmail/send",
                 json={
-                    "to": to,
+                    "to": recipient_email,
                     "subject": subject,
                     "body": body
                 },
@@ -382,7 +387,7 @@ async def send_email(
             )
             
             if response.status_code in [200, 201]:
-                result = f"Done! Email sent to {to}."
+                result = f"Done! Email sent to {recipient_email}."
                 log_tool_result("send_email", result)
                 return result
             elif response.status_code == 401:
