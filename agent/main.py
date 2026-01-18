@@ -1,19 +1,29 @@
 """
 OTTO - LiveKit Voice Agent
-Main entry point for the Python agent
+Using Google Gemini Live Realtime API
 """
 
 import os
-import httpx
+from pathlib import Path
 from dotenv import load_dotenv
-from livekit import agents
-from livekit.agents import AgentSession, Agent, RoomInputOptions
+
+from livekit.agents import (
+    Agent,
+    AgentSession,
+    JobContext,
+    WorkerOptions,
+    cli,
+)
 from livekit.plugins import silero
+from livekit.plugins import google
 
-load_dotenv()
-
-API_URL = os.getenv("API_URL", "http://localhost:3000")
-WORKSPACE_ID = os.getenv("WORKSPACE_ID", "demo")
+# Load .env.local from project root (parent of agent directory)
+project_root = Path(__file__).parent.parent
+env_file = project_root / ".env.local"
+if env_file.exists():
+    load_dotenv(env_file)
+else:
+    load_dotenv()
 
 
 class OttoAgent(Agent):
@@ -34,23 +44,21 @@ Rules:
         )
 
 
-async def entrypoint(ctx: agents.JobContext):
+async def entrypoint(ctx: JobContext):
     """Main entrypoint for the agent"""
     await ctx.connect()
 
+    # Use Google Gemini Realtime API directly
     session = AgentSession(
-        stt="deepgram",  # or "assemblyai"
-        llm="google",
-        tts="cartesia",
+        llm=google.realtime.RealtimeModel(
+            model="gemini-2.5-flash-native-audio-preview-09-2025",
+        ),
         vad=silero.VAD.load(),
     )
 
     await session.start(
         room=ctx.room,
         agent=OttoAgent(),
-        room_input_options=RoomInputOptions(
-            # Enable noise cancellation if available
-        ),
     )
 
     # Greet the user
@@ -60,8 +68,8 @@ async def entrypoint(ctx: agents.JobContext):
 
 
 if __name__ == "__main__":
-    agents.cli.run_app(
-        agents.WorkerOptions(
+    cli.run_app(
+        WorkerOptions(
             entrypoint_fnc=entrypoint,
         )
     )

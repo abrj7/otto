@@ -1,10 +1,10 @@
 # OTTO LiveKit Agent Dependencies
 
-livekit-agents[silero,turn-detector]>=1.0.0
-livekit-plugins-google>=0.10.0
-livekit-plugins-deepgram>=0.6.0
-livekit-plugins-cartesia>=0.4.0
-livekit-plugins-noise-cancellation>=0.2.0
+# Core LiveKit agents
+livekit-agents[silero]>=1.0.0
 
+# Google plugin for Gemini Live API
+livekit-plugins-google>=0.10.0
+
+# Utilities
 python-dotenv>=1.0.0
-httpx>=0.27.0
