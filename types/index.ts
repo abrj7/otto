@@ -12,14 +12,14 @@ export interface Workspace {
   created_at: string
 }
 
-export type IntegrationType = 
-  | 'github' 
-  | 'slack' 
-  | 'teams' 
-  | 'notion' 
-  | 'gmail' 
-  | 'calendar' 
-  | 'linear'
+export type IntegrationType =
+  | 'github'
+  | 'slack'
+  | 'notion'
+  | 'gmail'
+  | 'calendar'
+  | 'linkedin'
+  | 'zoom'
 
 export interface Integration {
   id: string
