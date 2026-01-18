@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
 // Admin client for DB operations (bypasses RLS)
 const supabaseAdmin = createAdminClient(
@@ -8,11 +8,21 @@ const supabaseAdmin = createAdminClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     const supabase = await createClient()
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-    if (userError || !user) {
+    // Get user - either from session cookie OR from X-User-ID header (for agent)
+    let userId: string | null = null
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+        userId = user.id
+    } else {
+        // Fallback to X-User-ID header (used by voice agent)
+        userId = request.headers.get('X-User-ID')
+    }
+
+    if (!userId) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -20,7 +30,7 @@ export async function GET() {
     const { data: integration } = await supabaseAdmin
         .from('user_integrations')
         .select('access_token')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('provider', 'google')
         .single()
 

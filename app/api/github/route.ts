@@ -14,17 +14,26 @@ export async function GET(request: NextRequest) {
     const owner = searchParams.get('owner')
     const repo = searchParams.get('repo')
 
-    // Get user's GitHub token
+    // Get user - either from session cookie OR from X-User-ID header (for agent)
     const supabase = await createClient()
+    let userId: string | null = null
+
+    // Try cookie-based auth first
     const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+        userId = user.id
+    } else {
+        // Fallback to X-User-ID header (used by voice agent)
+        userId = request.headers.get('X-User-ID')
+    }
 
     let githubToken: string | null = null
 
-    if (user) {
+    if (userId) {
         const { data: integration } = await supabaseAdmin
             .from('user_integrations')
             .select('access_token')
-            .eq('user_id', user.id)
+            .eq('user_id', userId)
             .eq('provider', 'github')
             .single()
 
