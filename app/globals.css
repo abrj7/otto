@@ -123,3 +123,39 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Voice Orbs Animations */
+@keyframes pulse-gentle {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+}
+
+@keyframes voice-orb {
+  0%, 100% {
+    transform: scaleY(1);
+  }
+  25% {
+    transform: scaleY(1.4);
+  }
+  50% {
+    transform: scaleY(0.8);
+  }
+  75% {
+    transform: scaleY(1.2);
+  }
+}
+
+.animate-pulse-gentle {
+  animation: pulse-gentle 2s ease-in-out infinite;
+}
+
+.animate-voice-orb {
+  animation: voice-orb 0.5s ease-in-out infinite;
+}
+

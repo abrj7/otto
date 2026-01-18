@@ -11,7 +11,7 @@ import { SummaryBlock } from '@/components/blocks/SummaryBlock'
 import { ReceiptsBlock } from '@/components/blocks/ReceiptsBlock'
 import { TokenStatsBlock } from '@/components/blocks/TokenStatsBlock'
 import type { QueryResponse } from '@/types'
-import { Send, RefreshCw, Settings, ChevronLeft, Search, Plus, FileText, Calendar, MessageSquare, Github } from 'lucide-react'
+import { Send, RefreshCw, Settings, ChevronLeft, Search, FileText, Calendar, MessageSquare, Github } from 'lucide-react'
 
 export default function DashboardPage() {
     const [query, setQuery] = useState('')
