@@ -1,12 +1,6 @@
-import { createClient } from '@/lib/supabase/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
-
-// Admin client for DB operations (bypasses RLS)
-const supabaseAdmin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { createClient } from '@/lib/supabase/server'
+import { getValidGoogleToken } from '@/lib/google-auth'
 
 // POST - Send an email via Gmail API
 export async function POST(request: NextRequest) {
@@ -27,17 +21,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get Google token from user_integrations
-    const { data: integration } = await supabaseAdmin
-        .from('user_integrations')
-        .select('access_token')
-        .eq('user_id', userId)
-        .eq('provider', 'google')
-        .single()
+    // Get valid Google token (auto-refreshes if expired)
+    const accessToken = await getValidGoogleToken(userId)
 
-    if (!integration?.access_token) {
+    if (!accessToken) {
         return NextResponse.json({
-            error: 'Gmail not connected',
+            error: 'Gmail not connected or token expired. Please reconnect Google.',
             connected: false
         }, { status: 401 })
     }
@@ -73,7 +62,7 @@ export async function POST(request: NextRequest) {
             {
                 method: 'POST',
                 headers: {
-                    Authorization: `Bearer ${integration.access_token}`,
+                    Authorization: `Bearer ${accessToken}`,
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
