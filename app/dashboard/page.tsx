@@ -5,6 +5,55 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MicButton } from '@/components/voice/MicButton'
 import { VoiceStatus } from '@/components/voice/VoiceStatus'
+import { LiveKitSession, VoiceOrbs, useSessionContext } from '@/components/voice/LiveKitSession'
+import { Send, RefreshCw, Settings, ChevronLeft, Search, FileText, Calendar, MessageSquare, Github, Mail, CheckCircle2, Clock, ArrowRight, Phone, PhoneOff } from 'lucide-react'
+
+// Pre-calculated wave paths to avoid hydration mismatch
+const tealWavePaths = [
+    "M0 0 Q25 500 0 1000",
+    "M50 0 Q75 542 50 1000",
+    "M100 0 Q125 591 100 1000",
+    "M150 0 Q175 507 150 1000",
+    "M200 0 Q225 421 200 1000",
+    "M250 0 Q275 380 250 1000",
+    "M300 0 Q325 410 300 1000",
+    "M350 0 Q375 493 350 1000",
+    "M400 0 Q425 579 400 1000",
+    "M450 0 Q475 620 450 1000",
+    "M500 0 Q525 591 500 1000",
+    "M550 0 Q575 508 550 1000",
+    "M600 0 Q625 420 600 1000",
+    "M650 0 Q675 379 650 1000",
+    "M700 0 Q725 409 700 1000",
+    "M750 0 Q775 492 750 1000",
+    "M800 0 Q825 578 800 1000",
+    "M850 0 Q875 620 850 1000",
+    "M900 0 Q925 591 900 1000",
+    "M950 0 Q975 508 950 1000",
+]
+
+const orangeWavePaths = [
+    "M800 0 Q815 800 800 1000",
+    "M830 0 Q845 530 830 1000",
+    "M860 0 Q875 669 860 1000",
+    "M890 0 Q905 703 890 1000",
+    "M920 0 Q935 617 920 1000",
+    "M950 0 Q965 479 950 1000",
+    "M980 0 Q995 348 980 1000",
+    "M1010 0 Q1025 278 1010 1000",
+    "M1040 0 Q1055 299 1040 1000",
+    "M1070 0 Q1085 404 1070 1000",
+    "M1100 0 Q1115 549 1100 1000",
+    "M1130 0 Q1145 680 1130 1000",
+    "M1160 0 Q1175 748 1160 1000",
+    "M1190 0 Q1205 727 1190 1000",
+    "M1220 0 Q1235 618 1220 1000",
+    "M1250 0 Q1265 462 1250 1000",
+    "M1280 0 Q1295 315 1280 1000",
+    "M1310 0 Q1325 232 1310 1000",
+    "M1340 0 Q1355 248 1340 1000",
+    "M1370 0 Q1385 360 1370 1000",
+]
 import { Send, RefreshCw, Mail, Calendar, Github, ArrowRight, Loader2, AlertCircle, ExternalLink } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
 import Link from 'next/link'
@@ -24,8 +73,21 @@ interface BriefingData {
 }
 
 export default function DashboardPage() {
+    return (
+        <LiveKitSession>
+            <DashboardContent />
+        </LiveKitSession>
+    )
+}
+
+function DashboardContent() {
     const [query, setQuery] = useState('')
     const [isLoading, setIsLoading] = useState(false)
+    
+    // Get session from LiveKit context
+    const session = useSessionContext()
+    const isConnected = session.isConnected
+    const isConnecting = session.connectionState === 'connecting'
     const [voiceStatus, setVoiceStatus] = useState<'idle' | 'listening' | 'processing' | 'speaking'>('idle')
     const [briefing, setBriefing] = useState<BriefingData | null>(null)
     const [isLoadingBriefing, setIsLoadingBriefing] = useState(true)
@@ -65,6 +127,20 @@ export default function DashboardPage() {
             setQuery('')
         }, 1000)
     }
+
+    const handleVoiceToggle = () => {
+        if (isConnected) {
+            session.end()
+        } else {
+            session.start()
+        }
+    }
+
+    // Map connection state to voice status
+    const voiceStatus: 'idle' | 'listening' | 'processing' | 'speaking' = 
+        isConnecting ? 'processing' :
+        isConnected ? 'listening' :
+        'idle'
 
     const currentDate = new Date().toLocaleDateString('en-US', {
         weekday: 'long',
@@ -173,6 +249,83 @@ export default function DashboardPage() {
                             </div>
                         )}
 
+                {/* Voice Agent Panel */}
+                <aside className="w-72 bg-[#0f0f10]/80 backdrop-blur-md border-l border-white/5 flex flex-col items-center justify-center">
+                    <div className="flex-1 flex items-center justify-center">
+                        <VoiceOrbs />
+                    </div>
+                    
+                    {/* Connection Button */}
+                    <div className="p-6 w-full space-y-3">
+                        <Button
+                            onClick={handleVoiceToggle}
+                            disabled={isConnecting}
+                            className={`w-full flex items-center justify-center gap-2 ${
+                                isConnected 
+                                    ? 'bg-red-600 hover:bg-red-700' 
+                                    : isConnecting
+                                        ? 'bg-yellow-600 hover:bg-yellow-700'
+                                        : 'bg-gradient-to-r from-teal-600 to-orange-600 hover:from-teal-700 hover:to-orange-700'
+                            } text-white border-0`}
+                        >
+                            {isConnected ? (
+                                <>
+                                    <PhoneOff className="w-4 h-4" />
+                                    End Call
+                                </>
+                            ) : isConnecting ? (
+                                'Connecting...'
+                            ) : (
+                                <>
+                                    <Phone className="w-4 h-4" />
+                                    Talk to Otto
+                                </>
+                            )}
+                        </Button>
+                        
+                        <p className="text-[#4b4b4b] text-xs text-center">
+                            {isConnected 
+                                ? 'Speaking with Otto...' 
+                                : 'Click to start a voice conversation'}
+                        </p>
+                    </div>
+                </aside>
+            </div>
+        </div>
+    )
+}
+
+function SidebarItem({ icon, label, active = false }: { icon: React.ReactNode; label: string; active?: boolean }) {
+    return (
+        <button className={`
+            w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors
+            ${active 
+                ? 'bg-white/10 text-white' 
+                : 'text-[#8a8a8a] hover:bg-white/5 hover:text-white'
+            }
+        `}>
+            {icon}
+            <span>{label}</span>
+        </button>
+    )
+}
+
+function InsightItem({ icon, title, subtitle, type }: { icon: React.ReactNode; title: string; subtitle: string; type: string }) {
+    const bgColors: Record<string, string> = {
+        email: 'bg-blue-600',
+        calendar: 'bg-purple-600',
+        github: 'bg-[#24292e]',
+        slack: 'bg-[#4A154B]'
+    }
+
+    return (
+        <div className="flex items-start gap-3 py-3 px-3 hover:bg-white/5 rounded-lg cursor-pointer transition-colors border border-white/5 bg-white/[0.02] backdrop-blur-sm">
+            <div className={`w-6 h-6 rounded flex items-center justify-center text-white ${bgColors[type] || 'bg-gray-600'}`}>
+                {icon}
+            </div>
+            <div className="flex-1 min-w-0">
+                <h3 className="text-white text-sm font-medium truncate">{title}</h3>
+                <p className="text-[#6b6b6b] text-sm truncate">{subtitle}</p>
                         {/* Insights */}
                         {briefing.insights.length > 0 && (
                             <div className="space-y-3">
