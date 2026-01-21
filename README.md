@@ -1,5 +1,8 @@
 # otto 🎙️
 
+**1st Place Winner of LiveKit Sponsor track at CMU [NexHacks](https://www.nexhacks.com/)**
+
+---
 > Your voice-first productivity assistant that unifies your entire workflow
 
 **otto** is an AI-powered voice agent that transforms how you interact with your work tools. Instead of context-switching between GitHub, Gmail, Google Calendar, and countless other platforms, just talk to otto.
