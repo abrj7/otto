@@ -1,12 +1,23 @@
 # otto 🎙️
-
+winner @ [NexHacks](https://devpost.com/software/ntta)
 > Your voice-first productivity assistant that unifies your entire workflow
 
 **otto** is an AI-powered voice agent that transforms how you interact with your work tools. Instead of context-switching between GitHub, Gmail, Google Calendar, and countless other platforms, just talk to otto.
+---
+# Demo images
+<div style="display: flex; flex-wrap: wrap; gap: 10px;">
 
+
+  <img src="https://github.com/user-attachments/assets/f0ba8f92-fd89-4b20-937e-42d001b598e7" width="48%" />
+  <img src="https://github.com/user-attachments/assets/1c2d4f07-d446-4226-aa84-d381e8196de4" width="48%" />
+  <img src="https://github.com/user-attachments/assets/aa4b27f6-e1a8-424a-b8a1-64e6a2a27b0d" width="48%" />
+  <img src="https://github.com/user-attachments/assets/88fe0926-d998-4b7a-a2b6-0cc1292296e9" width="48%" />
+  <img src="https://github.com/user-attachments/assets/f4ea3a44-e7d9-430b-837e-9ca57d934271" width="48%" />
+  <img src="https://github.com/user-attachments/assets/e6e8b65d-a701-4696-86da-286b6d00cba2" width="48%" />
+</div>
 ---
 
-## 🎯 Inspiration
+## Inspiration
 
 As software developers and tech professionals, we juggle an overwhelming number of tools and platforms daily:
 - GitHub for code reviews and project management
@@ -22,7 +33,7 @@ Ask otto to "send an email to John about tomorrow's meeting," "what PRs need my 
 
 ---
 
-## ✨ What it does
+## What it does
 
 otto is your voice-first command center for productivity:
 
@@ -51,7 +62,7 @@ otto: "Done! I've scheduled Sprint Planning for January 20th at 10am."
 
 ---
 
-## 🏗️ How we built it
+## How we built it
 
 ```mermaid
 graph TB
@@ -115,7 +126,7 @@ graph TB
 
 ---
 
-## 🚧 Challenges we ran into
+## Challenges we ran into
 
 ### 1. **LiveKit WebRTC Connection**
 Integrating LiveKit's WebRTC infrastructure with Next.js was complex. We had to:
@@ -144,7 +155,7 @@ Creating calendar events and sending emails via voice was harder than expected:
 
 ---
 
-## 🏆 Accomplishments that we're proud of
+## Accomplishments that we're proud of
 
 ✅ **6 fully functional voice tools** that actually work in production  
 ✅ **Real-time voice conversations** with natural language understanding  
@@ -155,7 +166,7 @@ Creating calendar events and sending emails via voice was harder than expected:
 
 ---
 
-## 📚 What we learned
+## What we learned
 
 - **WebRTC is hard, but LiveKit makes it manageable** — Real-time audio streaming requires careful state management
 - **Voice UX is fundamentally different** — Responses must be concise, spoken-length, no markdown
@@ -165,7 +176,7 @@ Creating calendar events and sending emails via voice was harder than expected:
 
 ---
 
-## 🔮 What's next for otto
+## What's next for otto
 
 We're building the **ultimate unified workflow ecosystem:**
 
@@ -182,7 +193,7 @@ We're building the **ultimate unified workflow ecosystem:**
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 # Install dependencies
@@ -203,7 +214,7 @@ cd agent && python main.py dev  # Voice agent
 
 ---
 
-## 📊 Tech Stack Summary
+## Tech Stack Summary
 
 **Frontend:** Next.js, React, TypeScript, Tailwind CSS, LiveKit Client  
 **Backend:** Next.js API Routes, Supabase  
