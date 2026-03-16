@@ -309,7 +309,7 @@ export default function DashboardPage() {
                                     <Zap className="w-5 h-5 text-green-600 fill-current" />
                                     Token Efficiency
                                 </h2>
-                                <p className="text-sm text-muted-foreground">Text compression via TTC (Token Transport Company)</p>
+                                <p className="text-sm text-muted-foreground">Text compression via The Token Company</p>
                             </div>
                             <button
                                 onClick={() => setShowEfficiencyModal(false)}

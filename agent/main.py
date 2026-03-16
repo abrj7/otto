@@ -26,6 +26,7 @@ from tools import (
     create_calendar_event,
     send_email,
     search_web,
+    lookup_contact,
     set_current_user_id,
 )
 
@@ -51,6 +52,7 @@ class OttoAgent(Agent):
                 create_calendar_event,
                 send_email,
                 search_web,
+                lookup_contact,
             ],
         )
 

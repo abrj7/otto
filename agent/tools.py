@@ -11,6 +11,7 @@ from typing import Optional
 from livekit.agents import function_tool, RunContext
 from duckduckgo_search import DDGS
 from ttc_compression import compress_text
+from contacts import resolve_contact
 
 # Configure logging for console output
 logging.basicConfig(
@@ -361,19 +362,31 @@ async def send_email(
 ) -> str:
     """
     Send an email via Gmail.
+    If the recipient is a known contact name (e.g. "Abdullah"), it will be
+    automatically resolved to their saved email address.
     
     Args:
-        to: Recipient email address
+        to: Recipient email address or known contact name
         subject: Email subject line
         body: Email body content
     """
-    log_tool_call("send_email", to=to, subject=subject, body=body[:50]+"..." if len(body) > 50 else body)
+    # Safety-net: resolve contact names that aren't email addresses
+    resolved_to = to
+    if "@" not in to:
+        resolved_email = resolve_contact(to)
+        if resolved_email:
+            print(f"\033[1;33m📇 Contact resolved: '{to}' → {resolved_email}\033[0m")
+            resolved_to = resolved_email
+        else:
+            return f"I don't have a saved email for '{to}'. Could you give me their email address?"
+
+    log_tool_call("send_email", to=resolved_to, subject=subject, body=body[:50]+"..." if len(body) > 50 else body)
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{API_URL}/api/gmail/send",
                 json={
-                    "to": to,
+                    "to": resolved_to,
                     "subject": subject,
                     "body": body
                 },
@@ -382,7 +395,7 @@ async def send_email(
             )
             
             if response.status_code in [200, 201]:
-                result = f"Done! Email sent to {to}."
+                result = f"Done! Email sent to {resolved_to}."
                 log_tool_result("send_email", result)
                 return result
             elif response.status_code == 401:
@@ -431,3 +444,28 @@ async def search_web(
     except Exception as e:
         logging.error(f"Error searching web: {e}")
         return "There was an error searching the web."
+
+
+@function_tool()
+async def lookup_contact(
+    context: RunContext,
+    name: str
+) -> str:
+    """
+    Look up a known contact's email address by their name.
+    Use this when you need to find someone's email before sending them a message
+    or adding them as an attendee.
+    
+    Args:
+        name: The contact name to look up (e.g., "Abdullah")
+    """
+    log_tool_call("lookup_contact", name=name)
+    email = resolve_contact(name)
+    if email:
+        result = f"{name}'s email is {email}"
+        log_tool_result("lookup_contact", result)
+        return result
+    else:
+        result = f"I don't have a saved contact for '{name}'."
+        log_tool_result("lookup_contact", result)
+        return result
