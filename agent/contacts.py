@@ -16,9 +16,7 @@ CONTACTS: dict[str, str] = {
     "abdullah": "abdrajput29@gmail.com",
     "abdullah rajput": "abdrajput29@gmail.com",
     "abd": "abdrajput29@gmail.com",
-    "abdrajput": "abdrajput29@gmail.com",
-    "zayd": "abdullahrajput209@gmail.com",
-    "zaid": "abdullahrajput209@gmail.com"
+    "abdrajput": "abdrajput29@gmail.com"
 }
 
 
