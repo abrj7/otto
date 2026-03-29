@@ -1,22 +1,19 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { getCalendarEvents } from '@/lib/cache/calendar'
 import { getValidGoogleToken } from '@/lib/google-auth'
 
 export async function GET(request: NextRequest) {
     const supabase = await createClient()
-
-    // Get timeframe from query params
     const { searchParams } = new URL(request.url)
-    const timeframe = searchParams.get('timeframe') || 'week'
+    const timeframe = (searchParams.get('timeframe') || 'week') as 'today' | 'week' | 'next-event'
+    const force = searchParams.get('force') === 'true'
 
-    // Get user - either from session cookie OR from X-User-ID header (for agent)
     let userId: string | null = null
-
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
         userId = user.id
     } else {
-        // Fallback to X-User-ID header (used by voice agent)
         userId = request.headers.get('X-User-ID')
     }
 
@@ -24,124 +21,29 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get valid Google token (auto-refreshes if expired)
-    const providerToken = await getValidGoogleToken(userId)
-
-    if (!providerToken) {
-        return NextResponse.json({
-            error: 'Google Calendar not connected or token expired. Please reconnect Google.',
-            connected: false
-        }, { status: 401 })
-    }
-
     try {
-        // Calculate time range based on timeframe
-        const now = new Date()
-        let timeMin = now.toISOString()
-        let timeMax: string
-        let maxResults = 10
+        const result = await getCalendarEvents(userId, { timeframe, force })
 
-        if (timeframe === 'today') {
-            const endOfDay = new Date(now)
-            endOfDay.setHours(23, 59, 59, 999)
-            timeMax = endOfDay.toISOString()
-        } else if (timeframe === 'next-event') {
-            maxResults = 1
-            const nextMonth = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
-            timeMax = nextMonth.toISOString()
-        } else { // week
-            const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-            timeMax = nextWeek.toISOString()
+        if ('error' in result) {
+            return NextResponse.json({ error: result.error, connected: false }, { status: 401 })
         }
 
-        const response = await fetch(
-            `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
-            `timeMin=${timeMin}&` +
-            `timeMax=${timeMax}&` +
-            `singleEvents=true&` +
-            `orderBy=startTime&` +
-            `maxResults=${maxResults}`,
-            {
-                headers: {
-                    Authorization: `Bearer ${providerToken}`,
-                },
-            }
-        )
-
-        if (!response.ok) {
-            const errorData = await response.json()
-
-            // Check for token expiration
-            if (response.status === 401) {
-                return NextResponse.json({
-                    error: 'Google token expired. Please reconnect.',
-                    connected: false
-                }, { status: 401 })
-            }
-
-            return NextResponse.json({
-                error: 'Google API error',
-                details: errorData
-            }, { status: response.status })
-        }
-
-        const data = await response.json()
-
-        // Format for UI
-        const events = data.items?.map((item: any) => ({
-            id: item.id,
-            title: item.summary || 'Untitled Event',
-            time: item.start?.dateTime
-                ? new Date(item.start.dateTime).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                })
-                : 'All Day',
-            date: item.start?.dateTime
-                ? new Date(item.start.dateTime).toLocaleDateString('en-US', {
-                    weekday: 'short',
-                    month: 'short',
-                    day: 'numeric'
-                })
-                : new Date(item.start?.date).toLocaleDateString('en-US', {
-                    weekday: 'short',
-                    month: 'short',
-                    day: 'numeric'
-                }),
-            description: item.description || 'No description',
-            start: item.start?.dateTime || item.start?.date,
-            location: item.location || null,
-            isToday: isToday(item.start?.dateTime || item.start?.date),
-        })) || []
-
-        return NextResponse.json({
-            events,
-            connected: true
-        })
+        return NextResponse.json({ events: result.events, connected: true })
     } catch (err) {
         console.error('Calendar Fetch Error:', err)
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
     }
 }
 
-function isToday(dateString: string): boolean {
-    const date = new Date(dateString)
-    const today = new Date()
-    return date.toDateString() === today.toDateString()
-}
-
-// POST - Create a new calendar event
+// POST - Create a new calendar event (unchanged — writes go direct to API)
 export async function POST(request: NextRequest) {
     const supabase = await createClient()
 
-    // Get user - either from session cookie OR from X-User-ID header (for agent)
     let userId: string | null = null
-
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
         userId = user.id
     } else {
-        // Fallback to X-User-ID header (used by voice agent)
         userId = request.headers.get('X-User-ID')
     }
 
@@ -149,14 +51,9 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get valid Google token (auto-refreshes if expired)
     const providerToken = await getValidGoogleToken(userId)
-
     if (!providerToken) {
-        return NextResponse.json({
-            error: 'Google Calendar not connected or token expired. Please reconnect Google.',
-            connected: false
-        }, { status: 401 })
+        return NextResponse.json({ error: 'Google Calendar not connected', connected: false }, { status: 401 })
     }
 
     try {
@@ -164,19 +61,12 @@ export async function POST(request: NextRequest) {
         const { title, date, time, duration = 60, attendees = [] } = body
 
         if (!title || !date || !time) {
-            return NextResponse.json({
-                error: 'Missing required fields: title, date, time'
-            }, { status: 400 })
+            return NextResponse.json({ error: 'Missing required fields: title, date, time' }, { status: 400 })
         }
 
-        // Build start/end times
         const startDateTime = new Date(`${date}T${time}:00`)
-
         if (isNaN(startDateTime.getTime())) {
-            return NextResponse.json({
-                error: 'Invalid date or time format. Please use YYYY-MM-DD and HH:MM.',
-                received: { date, time }
-            }, { status: 400 })
+            return NextResponse.json({ error: 'Invalid date or time format' }, { status: 400 })
         }
 
         const endDateTime = new Date(startDateTime.getTime() + duration * 60 * 1000)
@@ -193,7 +83,6 @@ export async function POST(request: NextRequest) {
             },
         }
 
-        // Add attendees if provided
         if (attendees.length > 0) {
             eventPayload.attendees = attendees.map((email: string) => ({ email }))
         }
@@ -212,14 +101,14 @@ export async function POST(request: NextRequest) {
 
         if (!response.ok) {
             const errorData = await response.json()
-            console.error('Calendar create error:', errorData)
-            return NextResponse.json({
-                error: 'Failed to create event',
-                details: errorData
-            }, { status: response.status })
+            return NextResponse.json({ error: 'Failed to create event', details: errorData }, { status: response.status })
         }
 
         const createdEvent = await response.json()
+
+        // Invalidate calendar cache so next read picks up the new event
+        const { invalidateCache } = await import('@/lib/cache/helpers')
+        await invalidateCache(userId, 'calendar')
 
         return NextResponse.json({
             success: true,
@@ -230,7 +119,6 @@ export async function POST(request: NextRequest) {
                 htmlLink: createdEvent.htmlLink,
             }
         }, { status: 201 })
-
     } catch (err) {
         console.error('Calendar Create Error:', err)
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })

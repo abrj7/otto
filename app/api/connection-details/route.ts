@@ -82,7 +82,7 @@ function createParticipantToken(
 ): Promise<string> {
   const at = new AccessToken(API_KEY, API_SECRET, {
     ...userInfo,
-    ttl: '15m',
+    ttl: '60m',
   });
 
   const grant: VideoGrant = {

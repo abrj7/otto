@@ -1,10 +1,13 @@
 """
 OTTO - LiveKit Voice Agent
 Using Google Gemini Live Realtime API
+Direct API access (no HTTP hop through Next.js)
+Parallel pre-fetch on session start for instant first response
 """
 
 import os
 import json
+import asyncio
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -28,6 +31,7 @@ from tools import (
     search_web,
     lookup_contact,
     set_current_user_id,
+    prefetch_user_data,
 )
 
 # Load .env.local from project root (parent of agent directory)
@@ -84,6 +88,10 @@ async def entrypoint(ctx: JobContext):
     else:
         print("⚠️ No user ID found - APIs will require login")
 
+    # Pre-fetch all user data in parallel while we set up the session
+    # This runs concurrently with Gemini/VAD initialization
+    prefetch_task = asyncio.create_task(prefetch_user_data()) if user_id else None
+
     # Use Google Gemini Realtime API
     session = AgentSession(
         llm=google.realtime.RealtimeModel(
@@ -96,6 +104,10 @@ async def entrypoint(ctx: JobContext):
         room=ctx.room,
         agent=OttoAgent(),
     )
+
+    # Wait for pre-fetch to complete (should be done by now since session.start takes longer)
+    if prefetch_task:
+        await prefetch_task
 
     # Greet the user
     await session.generate_reply(

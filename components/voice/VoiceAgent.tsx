@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import { VoiceOrbs } from "./VoiceOrbs";
 import { VoiceStatus } from "./VoiceStatus";
 import { Mic, MicOff, Loader2 } from "lucide-react";
@@ -22,9 +22,18 @@ type ConnectionDetails = {
 export function VoiceAgent() {
     const [connectionDetails, setConnectionDetails] = useState<ConnectionDetails | null>(null);
     const [isConnecting, setIsConnecting] = useState(false);
+    const [isActive, setIsActive] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const tokenExpiresAt = useRef<number>(0);
 
     const connect = useCallback(async () => {
+        // If we have a valid existing connection, just reactivate it
+        if (connectionDetails && Date.now() < tokenExpiresAt.current) {
+            setIsActive(true);
+            return;
+        }
+
+        // Otherwise create a new connection
         setIsConnecting(true);
         setError(null);
         try {
@@ -37,28 +46,40 @@ export function VoiceAgent() {
             }
             const details = await response.json();
             setConnectionDetails(details);
+            setIsActive(true);
+            // Token TTL is 60 minutes — track expiry with 2-min buffer
+            tokenExpiresAt.current = Date.now() + 58 * 60 * 1000;
         } catch (err) {
             setError(err instanceof Error ? err.message : "Connection failed");
             console.error("Connection error:", err);
         } finally {
             setIsConnecting(false);
         }
-    }, []);
+    }, [connectionDetails]);
 
     const disconnect = useCallback(() => {
+        // Soft disconnect: keep the connection details for fast reconnect
+        // Only clear on token expiry or explicit full disconnect
+        setIsActive(false);
+    }, []);
+
+    const fullDisconnect = useCallback(() => {
+        // Hard disconnect: destroy room entirely
         setConnectionDetails(null);
+        setIsActive(false);
+        tokenExpiresAt.current = 0;
     }, []);
 
     return (
         <div className="flex h-full w-full flex-col bg-background transition-colors duration-200">
-            {connectionDetails ? (
+            {connectionDetails && isActive ? (
                 <LiveKitRoom
                     token={connectionDetails.participantToken}
                     serverUrl={connectionDetails.serverUrl}
                     connect={true}
                     audio={true}
                     video={false}
-                    onDisconnected={disconnect}
+                    onDisconnected={fullDisconnect}
                     className="flex-1 flex flex-col"
                 >
                     <RoomAudioRenderer />
@@ -69,6 +90,7 @@ export function VoiceAgent() {
                     onConnect={connect}
                     isConnecting={isConnecting}
                     error={error}
+                    hasSession={connectionDetails !== null && Date.now() < tokenExpiresAt.current}
                 />
             )}
 
@@ -140,10 +162,12 @@ function DisconnectedView({
     onConnect,
     isConnecting,
     error,
+    hasSession,
 }: {
     onConnect: () => void;
     isConnecting: boolean;
     error: string | null;
+    hasSession: boolean;
 }) {
     return (
         <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-12">
@@ -182,6 +206,8 @@ function DisconnectedView({
                     <span className="text-red-500">{error}</span>
                 ) : isConnecting ? (
                     "Connecting..."
+                ) : hasSession ? (
+                    "Tap to resume talking to otto"
                 ) : (
                     "Click to start talking to otto"
                 )}

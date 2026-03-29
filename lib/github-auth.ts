@@ -4,12 +4,7 @@
  * (GitHub OAuth tokens don't expire unless revoked, so simpler than Google)
  */
 
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { supabaseAdmin } from '@/lib/supabase/admin'
 
 /**
  * Get a valid GitHub access token for a user
