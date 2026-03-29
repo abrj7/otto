@@ -1,18 +1,20 @@
 import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { generateBriefing } from '@/lib/cache/briefing'
 
 /**
  * User-facing briefing endpoint
  * Reads from cache layer directly — no more proxy hop to /api/agent/briefing
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
     const supabase = await createClient()
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
     if (userError || !user) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const force = request.nextUrl.searchParams.get('force') === 'true'
 
     try {
         const { data: integrations } = await supabase
@@ -22,7 +24,7 @@ export async function GET() {
 
         const connectedServices = integrations?.map(i => i.provider) || []
 
-        const briefing = await generateBriefing(user.id)
+        const briefing = await generateBriefing(user.id, force)
 
         return NextResponse.json({
             ...briefing,

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { invalidateCache } from '@/lib/cache/helpers'
+import { clearBriefingCache } from '@/lib/cache/briefing'
 
 // Admin client for DB operations
 const supabaseAdmin = createClient(
@@ -212,6 +214,22 @@ export async function GET(
                 `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/onboarding?error=db_error`
             )
         }
+
+        // Invalidate stale caches so dashboard picks up fresh data from the new connection
+        const providerToCache: Record<string, 'gmail' | 'calendar' | 'github'> = {
+            google: 'gmail',   // Google covers both gmail and calendar
+            github: 'github',
+        }
+        const cacheProvider = providerToCache[provider]
+        if (cacheProvider) {
+            await invalidateCache(userId, cacheProvider).catch(() => {})
+            // Google also means calendar
+            if (provider === 'google') {
+                await invalidateCache(userId, 'calendar').catch(() => {})
+            }
+        }
+        // Always clear the briefing cache so it regenerates with the new data
+        clearBriefingCache(userId)
 
         // Redirect back to onboarding with success
         return NextResponse.redirect(

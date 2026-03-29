@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { invalidateCache } from '@/lib/cache/helpers'
+import { clearBriefingCache } from '@/lib/cache/briefing'
 
 // Admin client for DB operations (bypasses RLS)
 const supabaseAdmin = createAdminClient(
@@ -35,6 +37,20 @@ export async function DELETE(request: NextRequest) {
         console.error('Error disconnecting integration:', error)
         return NextResponse.json({ error: 'Failed to disconnect' }, { status: 500 })
     }
+
+    // Invalidate caches for the disconnected provider
+    const providerToCache: Record<string, 'gmail' | 'calendar' | 'github'> = {
+        google: 'gmail',
+        github: 'github',
+    }
+    const cacheProvider = providerToCache[provider]
+    if (cacheProvider) {
+        await invalidateCache(user.id, cacheProvider).catch(() => {})
+        if (provider === 'google') {
+            await invalidateCache(user.id, 'calendar').catch(() => {})
+        }
+    }
+    clearBriefingCache(user.id)
 
     return NextResponse.json({
         success: true,

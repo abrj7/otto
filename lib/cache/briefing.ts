@@ -19,6 +19,15 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY!
 const BRIEFING_CACHE = new Map<string, { data: any; timestamp: number }>()
 const CACHE_TTL_MS = 30 * 60 * 1000
 
+/**
+ * Clear the in-memory briefing cache for a user.
+ * Call this when a provider is connected/disconnected so the next
+ * dashboard load generates a fresh briefing with the new data.
+ */
+export function clearBriefingCache(userId: string) {
+    BRIEFING_CACHE.delete(userId)
+}
+
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY)
 const model = genAI.getGenerativeModel({
     model: 'gemini-2.5-flash',
